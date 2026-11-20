@@ -23,16 +23,16 @@ android {
         versionCode 10
         versionName "9.2.3"
     }
-    signingConfigs {
+signingConfigs {
         release {
             if (project.hasProperty('storeFile')) {
-                storeFile file(storeFile)
-                storePassword project.storePassword
-                keyAlias project.keyAlias
-                keyPassword project.keyPassword
+                storeFile file(project.property('storeFile'))
+                storePassword project.property('storePassword')
+                keyAlias project.property('keyAlias')
+                keyPassword project.property('keyPassword')
             }
         }
-    }
+}
     buildTypes {
         debug {
             externalNativeBuild {
