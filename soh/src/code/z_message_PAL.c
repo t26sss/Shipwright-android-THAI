@@ -1269,7 +1269,13 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
                         msgCtx->textPosX += 10;
                         break;
                     default:
-                        msgCtx->textPosX += (s32)(16.0f * (R_TEXT_CHAR_SCALE / 100.0f));
+                        // THAI: the high byte of a glyph code (0x88-0x90) encodes its advance width in pixels
+                        // (hi - 0x80 = 8..16). Any other code advances a full 16 pixels.
+                        if ((u8)((character >> 8) - 0x88) < 9) {
+                            msgCtx->textPosX += (character >> 8) - 0x80;
+                        } else {
+                            msgCtx->textPosX += 16;
+                        }
                         break;
                 }
                 break;
@@ -2753,7 +2759,7 @@ void Message_OpenText(PlayState* play, u16 textId) {
         R_TEXT_INIT_XPOS = 20;
         YREG(1) = 48;
     } else if (gSaveContext.language == LANGUAGE_JPN && !sDisplayNextMessageAsEnglish) {
-        R_TEXT_CHAR_SCALE = 88;
+        R_TEXT_CHAR_SCALE = 100; // THAI: was 88 (glyphs are drawn at full 16px size)
         R_TEXT_LINE_SPACING = 18;
         R_TEXT_INIT_XPOS = 50;
     } else {
