@@ -33,12 +33,34 @@ jobs:
           cmake --build build-linux --target GenerateSohOtr --parallel
           cp soh/soh.o2r Android/app/src/main/assets/soh.o2r
 
-      - name: Build debug APK
+      - name: Prepare signing key
+        env:
+          KS_B64: ${{ secrets.THAI_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.THAI_KEY_PASSWORD }}
         run: |
-          cd Android && ./gradlew assembleDebug
+          if [ -n "$KS_B64" ] && [ -n "$KS_PASS" ]; then
+            echo "Using the permanent key from repository secrets"
+            echo "$KS_B64" | base64 -d > Android/app/release.jks
+            echo "SIGN_PASS=$KS_PASS" >> "$GITHUB_ENV"
+          else
+            echo "No secrets found - using a temporary key (APK cannot update over older builds)"
+            keytool -genkeypair -keystore Android/app/release.jks -alias thai \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass thaithai123 -keypass thaithai123 \
+              -dname "CN=Thai OoT Build"
+            echo "SIGN_PASS=thaithai123" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build release APK
+        run: |
+          cd Android && ./gradlew assembleRelease \
+            -PstoreFile=release.jks \
+            -PstorePassword="$SIGN_PASS" \
+            -PkeyAlias=thai \
+            -PkeyPassword="$SIGN_PASS"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: soh-debug-apk
-          path: Android/app/build/outputs/apk/debug/*.apk
+          name: soh-apk
+          path: Android/app/build/outputs/apk/release/*.apk
