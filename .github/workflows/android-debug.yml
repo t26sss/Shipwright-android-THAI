@@ -1,0 +1,44 @@
+name: Android Debug Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    container:
+      image: djvdw7f2ro/android-builder-soh:v1.0.4
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Write local.properties
+        run: |
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > Android/local.properties
+          echo "ndk.dir=${ANDROID_NDK_HOME}" >> Android/local.properties
+
+      - name: Install host build dependencies
+        run: |
+          apt-get update
+          apt-get install -y $(cat .github/workflows/apt-deps.txt)
+
+      - name: Generate soh.o2r
+        run: |
+          cmake -S . -B build-linux -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-linux --target GenerateSohOtr --parallel
+          cp soh/soh.o2r Android/app/src/main/assets/soh.o2r
+
+      - name: Build debug APK
+        run: |
+          cd Android && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: soh-debug-apk
+          path: Android/app/build/outputs/apk/debug/*.apk
