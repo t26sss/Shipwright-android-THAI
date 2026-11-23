@@ -945,7 +945,13 @@ void Message_HandleOcarina(PlayState* play) {
 }
 
 // Taken from decomped N64 1.0 z_message https://decomp.me/scratch/462bn
+// THAI: per-character advance of player-name glyphs drawn through code 0x874F
+static u8 sThaiNameAdv[64];
+static s32 sThaiNameIdx;
+static s32 sThaiNameCount;
+
 void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
+    sThaiNameIdx = 0;
     MessageContext* msgCtx = &play->msgCtx;
     Font* font = &play->msgCtx.font;
     u16 character;
@@ -1268,11 +1274,18 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
                     case 0x8145:
                         msgCtx->textPosX += 10;
                         break;
+                    case 0x8E9E: // time-unit glyph referenced from C code
+                        msgCtx->textPosX += 14;
+                        break;
+                    case 0x874F: // player name character: width recorded when the name was decoded
+                        msgCtx->textPosX += sThaiNameAdv[sThaiNameIdx < 64 ? sThaiNameIdx : 63];
+                        sThaiNameIdx++;
+                        break;
                     default:
-                        // THAI: the high byte of a glyph code (0x88-0x90) encodes its advance width in pixels
-                        // (hi - 0x80 = 8..16). Any other code advances a full 16 pixels.
-                        if ((u8)((character >> 8) - 0x88) < 9) {
-                            msgCtx->textPosX += (character >> 8) - 0x80;
+                        // THAI: for high bytes 0x88-0x94 the advance in pixels is (hi - 0x84) = 4..16.
+                        // Any other code advances a full 16 pixels.
+                        if ((u8)((character >> 8) - 0x88) < 13) {
+                            msgCtx->textPosX += (character >> 8) - 0x84;
                         } else {
                             msgCtx->textPosX += 16;
                         }
@@ -1793,6 +1806,9 @@ bool Message_DecodeName(PlayState* play, s16* decodedBufPosPtr, s32* charTexIdxP
                 for (i = 0; i < playerNameLen; i++) {
                     curChar2 = gSaveContext.playerName[i];
                     u8* fontBuf = &font->fontBuf[(curChar2 * 32) << 2];
+                    if (sThaiNameCount < 64) {
+                        sThaiNameAdv[sThaiNameCount++] = 16;
+                    }
                     msgCtx->msgBufDecodedWide[(*decodedBufPosPtr)++] = MESSAGE_NAME_JPN;
                     for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
                         font->charTexBuf[*charTexIdxPtr + j + 0] = fontBuf[j + 0];
@@ -1821,6 +1837,17 @@ bool Message_DecodeName(PlayState* play, s16* decodedBufPosPtr, s32* charTexIdxP
                 for (i = 0; i < playerNameLen; i++) {
                     curChar2 = gSaveContext.playerName[i];
                     u8* fontBuf = &font->fontBuf[(curChar2 * 32) << 2];
+                    if (sThaiNameCount < 64) {
+                        s32 asc = curChar2;
+                        if (asc == 0xDF) asc = ' ';
+                        else if (asc == 0xEA) asc = '.';
+                        else if (asc == 0xE4) asc = '-';
+                        else if (asc < 0xA) asc += '0';
+                        else if (asc < 0xC5) asc -= 0x6A;
+                        else if (asc < 0xDF) asc -= 0x64;
+                        if (asc < ' ' || asc >= ' ' + 144) asc = ' ';
+                        sThaiNameAdv[sThaiNameCount++] = (u8)(sFontWidths[asc - ' '] + 1.0f);
+                    }
                     msgCtx->msgBufDecodedWide[(*decodedBufPosPtr)++] = MESSAGE_NAME_JPN;
                     for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
                         font->charTexBuf[*charTexIdxPtr + j + 0] = fontBuf[j + 0];
@@ -1932,9 +1959,12 @@ void Message_DecodeJPN(PlayState* play) {
     s16 decodedBufPos = 0;
     s16 i;
     s16 j;
+
     f32 timeInSeconds;
     MessageContext* msgCtx = &play->msgCtx;
     Font* font = &play->msgCtx.font;
+
+    sThaiNameCount = 0;
 
     while (true) {
         curChar = msgCtx->msgBufDecodedWide[decodedBufPos] = font->msgBufWide[msgCtx->msgBufPos];
@@ -1993,6 +2023,9 @@ void Message_DecodeJPN(PlayState* play) {
                     curChar = gSaveContext.playerName[i];
                     // FAKE? Figure out what best way to match is
                     fontBuf = &font->fontBuf[(curChar * 32) << 2];
+                    if (sThaiNameCount < 64) {
+                        sThaiNameAdv[sThaiNameCount++] = 16;
+                    }
                     msgCtx->msgBufDecodedWide[decodedBufPos + i] = MESSAGE_NAME_JPN;
 
                     for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
