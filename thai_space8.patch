@@ -1,0 +1,12 @@
+--- a/soh/src/code/z_message_PAL.c	2026-11-24 17:56:01.572442030 +0700
++++ b/soh/src/code/z_message_PAL.c	2026-11-24 17:56:06.357597689 +0700
+@@ -1281,6 +1281,9 @@
+                     case 0x8145:
+                         msgCtx->textPosX += 10;
+                         break;
++                    case 0x8140: // THAI: word space, narrower than the 16px ideographic space
++                        msgCtx->textPosX += 8;
++                        break;
+                     case 0x8E9E: // time-unit glyph referenced from C code
+                         msgCtx->textPosX += 14;
+                         break;
