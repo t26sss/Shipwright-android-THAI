@@ -1281,6 +1281,9 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
                     case 0x8145:
                         msgCtx->textPosX += 10;
                         break;
+                    case 0x8140: // THAI: word space
+                        msgCtx->textPosX += 8;
+                        break;
                     case 0x8E9E: // time-unit glyph referenced from C code
                         msgCtx->textPosX += 14;
                         break;
