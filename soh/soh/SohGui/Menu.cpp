@@ -823,6 +823,8 @@ void Menu::DrawElement() {
     if (menuSize.x > 1600) {
         sidebarWidth = menuSize.x * 0.15f;
     }
+    // THAI: wider sidebar so long (or scaled up) section names are not cut off
+    sidebarWidth = std::fmaxf(sidebarWidth, menuSize.x * 0.25f);
 
     const char* sidebarCvar = menuEntries.at(headerIndex).sidebarCvar;
 
@@ -869,9 +871,9 @@ void Menu::DrawElement() {
     std::string sectionMenuId = sectionIndex + " Settings";
     size_t columns = sidebar->at(sectionIndex).columnCount;
     size_t columnFuncs = sidebar->at(sectionIndex).columnWidgets.size();
-    if (windowWidth < 800) {
-        columns = 1;
-    }
+    // THAI: always draw the settings as a single column that scrolls down (vanilla only does this below 800px wide),
+    // so text does not overflow when the menu is scaled up.
+    columns = 1;
     float columnWidth = (sectionWidth - style.ItemSpacing.x * columns) / columns;
     bool useColumns = columns > 1;
     if (!useColumns || (headerSearch && menuSearchText.length() > 0)) {
@@ -919,7 +921,7 @@ void Menu::DrawElement() {
             }
             // for (auto& entryName : sidebar->at(sectionIndex).sidebarOrder) {
             for (auto& entry : sidebar->at(sectionIndex).columnWidgets.at(i)) {
-                MenuDrawItem(entry, 90 / sidebar->at(sectionIndex).columnCount, menuThemeIndex);
+                MenuDrawItem(entry, 90 / columns, menuThemeIndex);
             }
             //}
             if (useColumns) {
