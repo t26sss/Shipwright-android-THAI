@@ -253,7 +253,7 @@ void Sram_InitSave(FileChooseContext* fileChooseCtx) {
         gSaveContext.cutsceneIndex = 0;
     }
 
-    for (offset = 0; offset < 8; offset++) {
+    for (offset = 0; offset < PLAYER_NAME_LEN; offset++) {
         gSaveContext.playerName[offset] = Save_GetSaveMetaInfo(fileChooseCtx->buttonIndex)->playerName[offset];
     }
 

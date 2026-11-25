@@ -9,6 +9,10 @@
 #include "soh/Enhancements/randomizer/randomizer_entrance.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
 
+// THAI: max length of the file (player) name. Vanilla is 8. Unused trailing slots hold a space (0xDF NTSC / 0x3E PAL).
+#define PLAYER_NAME_LEN 16
+#define PLAYER_NAME_LAST (PLAYER_NAME_LEN - 1)
+
 #define FULL_HEART_HEALTH 0x10
 #define STARTING_HEALTH (3 * FULL_HEART_HEALTH)
 #define MAX_HEALTH (20 * FULL_HEART_HEALTH)
@@ -247,7 +251,7 @@ typedef struct {
     /* 0x0018 */ s32 bgsDayCount; // increments with totalDays, can be cleared with `Environment_ClearBgsDayCount`
     /* 0x001C */ char newf[6]; // string "ZELDAZ". start of `info` substruct, originally called "information"
     /* 0x0022 */ u16 deaths;
-    /* 0x0024 */ u8 playerName[8];
+    /* 0x0024 */ u8 playerName[PLAYER_NAME_LEN]; // THAI: was [8]
     /* 0x002C */ s16 n64ddFlag;
     /* 0x002E */ s16 healthCapacity; // "max_life"
     /* 0x0030 */ s16 health; // "now_life"

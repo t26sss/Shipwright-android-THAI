@@ -533,7 +533,9 @@ void SaveManager::StartupCheckAndInitMeta(int fileNum) {
     nlohmann::json& baseBlock = metaSaveBlock["sections"]["base"]["data"];
     fileMetaInfo[fileNum].deaths = baseBlock["deaths"];
     for (int i = 0; i < ARRAY_COUNT(fileMetaInfo[fileNum].playerName); i++) {
-        fileMetaInfo[fileNum].playerName[i] = baseBlock["playerName"][i];
+        // THAI: saves made before the 16 character limit only stored 8 entries; pad the rest with a space
+        fileMetaInfo[fileNum].playerName[i] =
+            (i < baseBlock["playerName"].size()) ? (u8)baseBlock["playerName"][i] : (u8)0xDF;
     }
     fileMetaInfo[fileNum].healthCapacity = baseBlock["healthCapacity"];
     fileMetaInfo[fileNum].questItems = baseBlock["inventory"]["questItems"];
@@ -825,19 +827,19 @@ void SaveManager::InitFileDebug() {
     if (ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN) {
         const static std::array<char, 8> sPlayerName = { 0x15, 0x12, 0x17, 0x14, 0x3E, 0x3E, 0x3E, 0x3E };
         for (int i = 0; i < ARRAY_COUNT(gSaveContext.playerName); i++) {
-            gSaveContext.playerName[i] = sPlayerName[i];
+            gSaveContext.playerName[i] = (i < 8) ? sPlayerName[i] : 0x3E; // THAI: pad slots past 8
         }
         gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_PAL;
     } else if (gSaveContext.language == LANGUAGE_JPN) { // Japanese
         const static std::array<char, 8> sPlayerName = { 0x81, 0x87, 0x61, 0xDF, 0xDF, 0xDF, 0xDF, 0xDF };
         for (int i = 0; i < ARRAY_COUNT(gSaveContext.playerName); i++) {
-            gSaveContext.playerName[i] = sPlayerName[i];
+            gSaveContext.playerName[i] = (i < 8) ? sPlayerName[i] : 0xDF; // THAI: pad slots past 8
         }
         gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_NTSC_JPN;
     } else { // GAME_REGION_NTSC
         const static std::array<char, 8> sPlayerName = { 0xB6, 0xB3, 0xB8, 0xB5, 0xDF, 0xDF, 0xDF, 0xDF };
         for (int i = 0; i < ARRAY_COUNT(gSaveContext.playerName); i++) {
-            gSaveContext.playerName[i] = sPlayerName[i];
+            gSaveContext.playerName[i] = (i < 8) ? sPlayerName[i] : 0xDF; // THAI: pad slots past 8
         }
         gSaveContext.ship.filenameLanguage =
             (gSaveContext.language == LANGUAGE_JPN) ? NAME_LANGUAGE_NTSC_JPN : NAME_LANGUAGE_NTSC_ENG;
@@ -945,19 +947,19 @@ void SaveManager::InitFileMaxed() {
     if (ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN) {
         const static std::array<char, 8> sPlayerName = { 0x15, 0x12, 0x17, 0x14, 0x3E, 0x3E, 0x3E, 0x3E };
         for (int i = 0; i < ARRAY_COUNT(gSaveContext.playerName); i++) {
-            gSaveContext.playerName[i] = sPlayerName[i];
+            gSaveContext.playerName[i] = (i < 8) ? sPlayerName[i] : 0x3E; // THAI: pad slots past 8
         }
         gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_PAL;
     } else if (gSaveContext.language == LANGUAGE_JPN) { // Japanese
         const static std::array<char, 8> sPlayerName = { 0x81, 0x87, 0x61, 0xDF, 0xDF, 0xDF, 0xDF, 0xDF };
         for (int i = 0; i < ARRAY_COUNT(gSaveContext.playerName); i++) {
-            gSaveContext.playerName[i] = sPlayerName[i];
+            gSaveContext.playerName[i] = (i < 8) ? sPlayerName[i] : 0xDF; // THAI: pad slots past 8
         }
         gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_NTSC_JPN;
     } else { // GAME_REGION_NTSC
         const static std::array<char, 8> sPlayerName = { 0xB6, 0xB3, 0xB8, 0xB5, 0xDF, 0xDF, 0xDF, 0xDF };
         for (int i = 0; i < ARRAY_COUNT(gSaveContext.playerName); i++) {
-            gSaveContext.playerName[i] = sPlayerName[i];
+            gSaveContext.playerName[i] = (i < 8) ? sPlayerName[i] : 0xDF; // THAI: pad slots past 8
         }
         gSaveContext.ship.filenameLanguage =
             (gSaveContext.language == LANGUAGE_JPN) ? NAME_LANGUAGE_NTSC_JPN : NAME_LANGUAGE_NTSC_ENG;
@@ -1416,8 +1418,10 @@ void SaveManager::LoadBaseVersion1() {
     SaveManager::Instance->LoadData("totalDays", gSaveContext.totalDays);
     SaveManager::Instance->LoadData("bgsDayCount", gSaveContext.bgsDayCount);
     SaveManager::Instance->LoadData("deaths", gSaveContext.deaths);
-    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName),
-                                     [](size_t i) { SaveManager::Instance->LoadData("", gSaveContext.playerName[i]); });
+    // THAI: entries past the end of an old 8 character save are filled with a space (0xDF)
+    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName), [](size_t i) {
+        SaveManager::Instance->LoadData("", gSaveContext.playerName[i], (u8)((i < 8) ? 0 : 0xDF));
+    });
     SaveManager::Instance->LoadData("healthCapacity", gSaveContext.healthCapacity);
     SaveManager::Instance->LoadData("health", gSaveContext.health);
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
@@ -1555,8 +1559,10 @@ void SaveManager::LoadBaseVersion2() {
     SaveManager::Instance->LoadData("totalDays", gSaveContext.totalDays);
     SaveManager::Instance->LoadData("bgsDayCount", gSaveContext.bgsDayCount);
     SaveManager::Instance->LoadData("deaths", gSaveContext.deaths);
-    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName),
-                                     [](size_t i) { SaveManager::Instance->LoadData("", gSaveContext.playerName[i]); });
+    // THAI: entries past the end of an old 8 character save are filled with a space (0xDF)
+    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName), [](size_t i) {
+        SaveManager::Instance->LoadData("", gSaveContext.playerName[i], (u8)((i < 8) ? 0 : 0xDF));
+    });
     SaveManager::Instance->LoadData("healthCapacity", gSaveContext.healthCapacity);
     SaveManager::Instance->LoadData("health", gSaveContext.health);
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
@@ -1767,8 +1773,10 @@ void SaveManager::LoadBaseVersion3() {
     SaveManager::Instance->LoadData("totalDays", gSaveContext.totalDays);
     SaveManager::Instance->LoadData("bgsDayCount", gSaveContext.bgsDayCount);
     SaveManager::Instance->LoadData("deaths", gSaveContext.deaths);
-    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName),
-                                     [](size_t i) { SaveManager::Instance->LoadData("", gSaveContext.playerName[i]); });
+    // THAI: entries past the end of an old 8 character save are filled with a space (0xDF)
+    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName), [](size_t i) {
+        SaveManager::Instance->LoadData("", gSaveContext.playerName[i], (u8)((i < 8) ? 0 : 0xDF));
+    });
     SaveManager::Instance->LoadData("healthCapacity", gSaveContext.healthCapacity);
     SaveManager::Instance->LoadData("health", gSaveContext.health);
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
@@ -1983,8 +1991,10 @@ void SaveManager::LoadBaseVersion4() {
     SaveManager::Instance->LoadData("totalDays", gSaveContext.totalDays);
     SaveManager::Instance->LoadData("bgsDayCount", gSaveContext.bgsDayCount);
     SaveManager::Instance->LoadData("deaths", gSaveContext.deaths);
-    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName),
-                                     [](size_t i) { SaveManager::Instance->LoadData("", gSaveContext.playerName[i]); });
+    // THAI: entries past the end of an old 8 character save are filled with a space (0xDF)
+    SaveManager::Instance->LoadArray("playerName", ARRAY_COUNT(gSaveContext.playerName), [](size_t i) {
+        SaveManager::Instance->LoadData("", gSaveContext.playerName[i], (u8)((i < 8) ? 0 : 0xDF));
+    });
     SaveManager::Instance->LoadData("healthCapacity", gSaveContext.healthCapacity);
     SaveManager::Instance->LoadData("health", gSaveContext.health);
     SaveManager::Instance->LoadData("magicLevel", gSaveContext.magicLevel);
@@ -2639,8 +2649,9 @@ void CopyV0Save(SaveContext_v0& src, SaveContext& dst) {
     dst.totalDays = src.totalDays;
     dst.bgsDayCount = src.bgsDayCount;
     dst.deaths = src.deaths;
-    for (size_t i = 0; i < ARRAY_COUNT(src.playerName); i++) {
-        dst.playerName[i] = src.playerName[i];
+    for (size_t i = 0; i < ARRAY_COUNT(dst.playerName); i++) {
+        // THAI: v0 saves only have 8 name slots; pad the rest with a space
+        dst.playerName[i] = (i < ARRAY_COUNT(src.playerName)) ? src.playerName[i] : 0xDF;
     }
     dst.n64ddFlag = src.n64ddFlag;
     dst.healthCapacity = src.healthCapacity;

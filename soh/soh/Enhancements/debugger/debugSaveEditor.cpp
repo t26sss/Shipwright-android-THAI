@@ -219,13 +219,13 @@ void DrawInfoTab() {
     ImU16 one = 1;
 
     if (gSaveContext.ship.filenameLanguage == NAME_LANGUAGE_PAL) {
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < PLAYER_NAME_LEN; i++) {
             char letter = z2ASCII(gSaveContext.playerName[i]);
             name += letter;
         }
         name += '\0';
     } else {
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < PLAYER_NAME_LEN; i++) {
             name += decodeNTSCPlayerNameChar(gSaveContext.playerName[i]);
         }
         name += '\0';
@@ -243,7 +243,7 @@ void DrawInfoTab() {
 
     Tooltip("Player Name");
     std::string nameID;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < PLAYER_NAME_LEN; i++) {
         nameID = z2ASCII(i);
         if (i % 4 != 0) {
             ImGui::SameLine();

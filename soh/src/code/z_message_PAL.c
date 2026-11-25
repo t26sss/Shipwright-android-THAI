@@ -2099,7 +2099,7 @@ void Message_DecodeJPN(PlayState* play) {
         if (curChar == MESSAGE_NAME_JPN) {
             // #region SOH [NTSC] - Support multiple names
             if (!Message_DecodeName(play, &decodedBufPos, &charTexIdx)) {
-                for (playerNameLen = 8; playerNameLen > 0; playerNameLen--) {
+                for (playerNameLen = PLAYER_NAME_LEN; playerNameLen > 0; playerNameLen--) {
                     if (gSaveContext.playerName[playerNameLen - 1] != 0xDF) {
                         break;
                     }
