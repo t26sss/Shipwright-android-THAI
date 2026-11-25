@@ -1700,6 +1700,47 @@ void Message_LoadItemIcon(PlayState* play, u16 itemId, s16 y) {
     msgCtx->choiceNum = 1;
 }
 
+// THAI: advance of one player-name character on the file select screen.
+s16 Thai_NameCharAdvance(u8 nameChar, s16* isMark) {
+    s32 asc = -1;
+    s32 adv = 16;
+
+    *isMark = 0;
+    if (nameChar == 0xDF) {
+        asc = ' ';
+    } else if (nameChar == 0xEA) {
+        asc = '.';
+    } else if (nameChar == 0xE4) {
+        asc = '-';
+    } else if (nameChar < 0xA) {
+        asc = nameChar + '0';
+    } else if (nameChar >= 0xAB && nameChar < 0xC5) {
+        asc = nameChar - 0x6A;
+    } else if (nameChar >= 0xC5 && nameChar < 0xDF) {
+        asc = nameChar - 0x64;
+    }
+
+    if (asc >= ' ') {
+        adv = (s32)(sFontWidths[asc - ' '] + 3.0f);
+        if (adv > 16) {
+            adv = 16;
+        }
+    } else {
+        u16 g = Font_GetNameGlyphCodeNTSC(nameChar);
+        u8 hi = g >> 8;
+
+        if (hi == 0x96) {
+            *isMark = 1;
+            adv = 0;
+        } else if (g == 0x8E9E) {
+            adv = 14;
+        } else if ((u8)(hi - 0x88) < 13) {
+            adv = hi - 0x84;
+        }
+    }
+    return (s16)adv;
+}
+
 // THAI: copies one player-name glyph into the character texture buffer and records its cursor movement.
 static void Thai_AddNameGlyph(Font* font, MessageContext* msgCtx, u8 nameChar, s32* charTexIdxPtr,
                               s16* decodedBufPosPtr) {
