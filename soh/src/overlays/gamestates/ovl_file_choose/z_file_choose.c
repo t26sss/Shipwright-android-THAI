@@ -13,6 +13,7 @@
 #include "soh/frame_interpolation.h"
 #include <soh/GameVersions.h>
 #include "objects/object_mag/object_mag.h"
+extern s16 Thai_NameCharAdvance(u8 nameChar, s16* isMark);
 #include "objects/gameplay_keep/gameplay_keep.h"
 #include "soh_assets.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
@@ -1464,6 +1465,9 @@ void FileChoose_DrawFileInfo(GameState* thisx, s16 fileIndex, s16 isActive) {
 
         // #region SOH [NTSC] - Convert playerName to display appropriately
         u8 filenameLanguage = Save_GetSaveMetaInfo(fileIndex)->filenameLanguage;
+      s16 thaiNameX0 = 0;
+        s16 thaiCurX = 0;
+        s16 thaiLastX = 0;
         for (i = 0, vtxOffset = 0; vtxOffset < 0x20; i++, vtxOffset += 4) {
             u8 curChar = Save_GetSaveMetaInfo(fileIndex)->playerName[i];
             if (ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN) {
@@ -1494,6 +1498,26 @@ void FileChoose_DrawFileInfo(GameState* thisx, s16 fileIndex, s16 isActive) {
                     } else if (curChar == 0x40) {
                         curChar += 0xAA;
                     }
+                }
+            }
+            // THAI: place each name glyph by its own advance instead of a fixed pitch
+            if (!(ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN)) {
+                Vtx* nv = &this->windowContentVtx[D_8081284C[fileIndex] + vtxOffset];
+                s16 isMark;
+                s16 adv = Thai_NameCharAdvance(curChar, &isMark);
+                s16 width = nv[1].v.ob[0] - nv[0].v.ob[0];
+                s16 left = (i == 0) ? nv[0].v.ob[0] : (isMark ? thaiLastX : thaiCurX);
+
+                if (i == 0) {
+                    thaiNameX0 = nv[0].v.ob[0];
+                    left = thaiNameX0;
+                    thaiCurX = thaiNameX0;
+                }
+                nv[0].v.ob[0] = nv[2].v.ob[0] = left;
+                nv[1].v.ob[0] = nv[3].v.ob[0] = left + width;
+                if (!isMark) {
+                    thaiLastX = left;
+                    thaiCurX = left + adv;
                 }
             }
             // #endregion
