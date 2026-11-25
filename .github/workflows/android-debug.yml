@@ -10,6 +10,13 @@ jobs:
       image: djvdw7f2ro/android-builder-soh:v1.0.4
     permissions:
       contents: read
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_COMPILERCHECK: content
+      CCACHE_SLOPPINESS: pch_defines,time_macros
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
 
     steps:
       - name: Checkout
@@ -25,7 +32,17 @@ jobs:
       - name: Install host build dependencies
         run: |
           apt-get update
-          apt-get install -y $(cat .github/workflows/apt-deps.txt)
+          apt-get install -y $(cat .github/workflows/apt-deps.txt) ccache zstd
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: ccache-android-${{ github.run_id }}
+          restore-keys: ccache-android-
+
+      - name: Reset ccache statistics
+        run: ccache --zero-stats
 
       - name: Generate soh.o2r
         run: |
@@ -58,6 +75,9 @@ jobs:
             -PstorePassword="$SIGN_PASS" \
             -PkeyAlias=thai \
             -PkeyPassword="$SIGN_PASS"
+
+      - name: Show ccache statistics
+        run: ccache --show-stats
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
