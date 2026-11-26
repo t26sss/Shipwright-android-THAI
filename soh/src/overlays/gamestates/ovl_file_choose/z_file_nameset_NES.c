@@ -7,6 +7,33 @@
 #include "soh/ResourceManagerHelpers.h"
 #include <libultraship/bridge/consolevariablebridge.h>
 
+// THAI: name entry supports PLAYER_NAME_LEN glyphs (vanilla: 8).
+// nameEntryVtx layout: [0..3] name box, then 4 vertices per glyph, then 4 vertices for the glyph cursor and 4 for the
+// button highlight.
+#define NAME_ENTRY_CURSOR_VTX (4 + PLAYER_NAME_LEN * 4)
+#define NAME_ENTRY_VTX_COUNT (NAME_ENTRY_CURSOR_VTX + 8)
+#define NAME_ENTRY_BOX_X (-70)  // vanilla: -30 (108 wide). The box is stretched to NAME_ENTRY_BOX_W.
+#define NAME_ENTRY_BOX_W (14 + PLAYER_NAME_LEN * 10 + 14)
+#define NAME_ENTRY_GLYPH_PITCH 10
+
+// THAI: advance of one name glyph (and whether it is a combining mark), defined in z_message_PAL.c
+extern s16 Thai_NameCharAdvance(u8 nameChar, s16* isMark);
+
+static s16 NameEntry_SlotX(s16 slot) {
+    if (slot == 0) {
+        return NAME_ENTRY_BOX_X;
+    }
+    if (slot <= PLAYER_NAME_LEN) {
+        return NAME_ENTRY_BOX_X + 14 + NAME_ENTRY_GLYPH_PITCH * (slot - 1);
+    }
+    return NAME_ENTRY_BOX_X + 14; // cursor / highlight placeholders, repositioned every frame
+}
+
+static s16 NameEntry_SlotY(s16 slot) {
+    return (slot == 0) ? 0x48 : 0x45;
+}
+
+
 // File based on matching decomp for z_file_nameset_NES on N64 1.0 https://decomp.me/scratch/1tru6
 // Edited to follow port's stage of documentation and implemented enhancements found in z_file_nameset_PAL.c
 
@@ -181,16 +208,16 @@ void FileChoose_SetNameEntryVtxNES(GameState* thisx) {
         }
     }
 
-    this->nameEntryVtx = Graph_Alloc(this->state.gfxCtx, 44 * sizeof(Vtx));
+    this->nameEntryVtx = Graph_Alloc(this->state.gfxCtx, NAME_ENTRY_VTX_COUNT * sizeof(Vtx));
 
-    for (var_s0 = 0, var_t2 = 0; var_t2 < 44; var_t2 += 4, var_s0++) {
+    for (var_s0 = 0, var_t2 = 0; var_t2 < NAME_ENTRY_VTX_COUNT; var_t2 += 4, var_s0++) {
         this->nameEntryVtx[var_t2].v.ob[0] = this->nameEntryVtx[var_t2 + 2].v.ob[0] =
-            D_808125EC[var_s0] + this->nameEntryBoxPosX;
+            NameEntry_SlotX(var_s0) + this->nameEntryBoxPosX;
 
         this->nameEntryVtx[var_t2 + 1].v.ob[0] = this->nameEntryVtx[var_t2 + 3].v.ob[0] =
             this->nameEntryVtx[var_t2].v.ob[0] + 0xA;
 
-        this->nameEntryVtx[var_t2].v.ob[1] = this->nameEntryVtx[var_t2 + 1].v.ob[1] = D_80812604[var_s0];
+        this->nameEntryVtx[var_t2].v.ob[1] = this->nameEntryVtx[var_t2 + 1].v.ob[1] = NameEntry_SlotY(var_s0);
 
         this->nameEntryVtx[var_t2 + 2].v.ob[1] = this->nameEntryVtx[var_t2 + 3].v.ob[1] =
             this->nameEntryVtx[var_t2].v.ob[1] - 0xA;
@@ -218,9 +245,33 @@ void FileChoose_SetNameEntryVtxNES(GameState* thisx) {
                                         0xFF;
     }
 
-    this->nameEntryVtx[1].v.ob[0] = this->nameEntryVtx[3].v.ob[0] = this->nameEntryVtx[0].v.ob[0] + 0x6C;
+    this->nameEntryVtx[1].v.ob[0] = this->nameEntryVtx[3].v.ob[0] = this->nameEntryVtx[0].v.ob[0] + NAME_ENTRY_BOX_W;
     this->nameEntryVtx[2].v.ob[1] = this->nameEntryVtx[3].v.ob[1] = this->nameEntryVtx[0].v.ob[1] - 0x10;
     this->nameEntryVtx[1].v.tc[0] = this->nameEntryVtx[3].v.tc[0] = 108 << 5;
+
+    // THAI: lay the name glyphs out by their own advance so vowels / tone marks stack on the previous consonant
+    // instead of taking a slot of their own. The cursor (nameEntryVtx[tmp]) follows these positions.
+    {
+        s16 curX = NameEntry_SlotX(1) + this->nameEntryBoxPosX;
+        s16 lastX = curX;
+        s16 slot;
+
+        for (slot = 0; slot < PLAYER_NAME_LEN; slot++) {
+            Vtx* gv = &this->nameEntryVtx[4 + slot * 4];
+            s16 isMark = 0;
+            s16 adv = Thai_NameCharAdvance(filename[slot], &isMark);
+            s16 left = isMark ? lastX : curX;
+
+            gv[0].v.ob[0] = gv[2].v.ob[0] = left;
+            gv[1].v.ob[0] = gv[3].v.ob[0] = left + 0xA;
+            if (!isMark) {
+                // advance is for the 16px glyph, the name entry glyph is drawn at NAME_ENTRY_GLYPH_PITCH px
+                s16 scaled = (adv * NAME_ENTRY_GLYPH_PITCH + 8) / 16;
+                lastX = left;
+                curX = left + ((scaled < 1) ? 1 : scaled);
+            }
+        }
+    }
 
     gDPPipeSync(POLY_OPA_DISP++);
     gDPSetCombineLERP(POLY_OPA_DISP++, PRIMITIVE, ENVIRONMENT, TEXEL0, ENVIRONMENT, TEXEL0, 0, PRIMITIVE, 0, PRIMITIVE,
@@ -235,22 +286,26 @@ void FileChoose_SetNameEntryVtxNES(GameState* thisx) {
     gDPPipeSync(POLY_OPA_DISP++);
     gDPSetCombineLERP(POLY_OPA_DISP++, 0, 0, 0, PRIMITIVE, TEXEL0, 0, PRIMITIVE, 0, 0, 0, 0, PRIMITIVE, TEXEL0, 0,
                       PRIMITIVE, 0);
-    gSPVertex(POLY_OPA_DISP++, this->nameEntryVtx + 4, 32, 0);
     gDPSetPrimColor(POLY_OPA_DISP++, 0, 0, 255, 255, 255, this->nameEntryBoxAlpha);
 
-    for (var_s0 = 0, var_v0 = 0; var_s0 < 0x20; var_s0 += 4, var_v0++) {
-        FileChoose_DrawCharacterNES(this->state.gfxCtx, font->fontBuf + filename[var_v0] * FONT_CHAR_TEX_SIZE, var_s0);
+    // THAI: gSPVertex loads at most 32 vertices, so the glyphs are drawn in batches of 8
+    for (var_v0 = 0; var_v0 < PLAYER_NAME_LEN; var_v0++) {
+        if ((var_v0 & 7) == 0) {
+            gSPVertex(POLY_OPA_DISP++, this->nameEntryVtx + 4 + var_v0 * 4, 32, 0);
+        }
+        FileChoose_DrawCharacterNES(this->state.gfxCtx, font->fontBuf + filename[var_v0] * FONT_CHAR_TEX_SIZE,
+                                    (var_v0 & 7) * 4);
     }
 
-    this->nameEntryVtx[37].v.tc[0] = this->nameEntryVtx[38].v.tc[1] = this->nameEntryVtx[39].v.tc[0] =
-        this->nameEntryVtx[39].v.tc[1] = this->nameEntryVtx[41].v.tc[0] = this->nameEntryVtx[42].v.tc[1] =
-            this->nameEntryVtx[43].v.tc[0] = this->nameEntryVtx[43].v.tc[1] = 24 << 5;
+    this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 1].v.tc[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 2].v.tc[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 3].v.tc[0] =
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 3].v.tc[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.tc[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 6].v.tc[1] =
+            this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.tc[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.tc[1] = 24 << 5;
 
     if ((this->kbdButton == FS_KBD_BTN_HIRA) || (this->kbdButton == FS_KBD_BTN_KATA) ||
         (this->kbdButton == FS_KBD_BTN_END)) {
-        this->nameEntryVtx[41].v.tc[0] = this->nameEntryVtx[43].v.tc[0] = 56 << 5;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.tc[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.tc[0] = 56 << 5;
     } else if ((this->kbdButton == FS_KBD_BTN_ENG) || (this->kbdButton == FS_KBD_BTN_BACKSPACE)) {
-        this->nameEntryVtx[41].v.tc[0] = this->nameEntryVtx[43].v.tc[0] = 40 << 5;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.tc[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.tc[0] = 40 << 5;
     }
 
     CLOSE_DISPS(this->state.gfxCtx);
@@ -453,49 +508,49 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
 
     tmp = (this->newFileNameCharCount * 4) + 4;
 
-    this->nameEntryVtx[0x24].v.ob[0] = this->nameEntryVtx[0x26].v.ob[0] = this->nameEntryVtx[tmp].v.ob[0] - 6;
+    this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 0].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 2].v.ob[0] = this->nameEntryVtx[tmp].v.ob[0] - 6;
 
-    this->nameEntryVtx[0x25].v.ob[0] = this->nameEntryVtx[0x27].v.ob[0] = this->nameEntryVtx[0x24].v.ob[0] + 24;
+    this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 1].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 3].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 0].v.ob[0] + 24;
 
-    this->nameEntryVtx[0x24].v.ob[1] = this->nameEntryVtx[0x25].v.ob[1] = this->nameEntryVtx[tmp].v.ob[1] + 7;
+    this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 0].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 1].v.ob[1] = this->nameEntryVtx[tmp].v.ob[1] + 7;
 
-    this->nameEntryVtx[0x26].v.ob[1] = this->nameEntryVtx[0x27].v.ob[1] = this->nameEntryVtx[0x24].v.ob[1] - 24;
+    this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 2].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 3].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 0].v.ob[1] - 24;
 
     if ((this->kbdButton == 0) || (this->kbdButton == 1) || (this->kbdButton == 4)) {
         if (this->kbdX != this->kbdButton) {
             osSyncPrintf("014 xpos=%d  contents=%d\n", this->kbdX, this->kbdButton);
         }
-        this->nameEntryVtx[40].v.ob[0] = this->nameEntryVtx[42].v.ob[0] = vertices[(this->kbdX + 1) * 4].v.ob[0] - 4;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 6].v.ob[0] = vertices[(this->kbdX + 1) * 4].v.ob[0] - 4;
 
-        this->nameEntryVtx[41].v.ob[0] = this->nameEntryVtx[43].v.ob[0] = this->nameEntryVtx[40].v.ob[0] + 52;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[0] + 52;
 
-        this->nameEntryVtx[40].v.ob[1] = this->nameEntryVtx[41].v.ob[1] = vertices[(this->kbdX + 1) * 4].v.ob[1] + 4;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.ob[1] = vertices[(this->kbdX + 1) * 4].v.ob[1] + 4;
     } else if ((this->kbdButton == 2) || (this->kbdButton == 3)) {
         if (this->kbdX != this->kbdButton) {
             osSyncPrintf("23 xpos=%d  contents=%d\n", this->kbdX, this->kbdButton);
         }
-        this->nameEntryVtx[40].v.ob[0] = this->nameEntryVtx[42].v.ob[0] = vertices[(this->kbdX + 1) * 4].v.ob[0] - 4;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 6].v.ob[0] = vertices[(this->kbdX + 1) * 4].v.ob[0] - 4;
 
-        this->nameEntryVtx[41].v.ob[0] = this->nameEntryVtx[43].v.ob[0] = this->nameEntryVtx[40].v.ob[0] + 40;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[0] + 40;
 
-        this->nameEntryVtx[40].v.ob[1] = this->nameEntryVtx[41].v.ob[1] = vertices[(this->kbdX + 1) * 4].v.ob[1] + 4;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.ob[1] = vertices[(this->kbdX + 1) * 4].v.ob[1] + 4;
     } else {
         if (this->charIndex >= 65) {
             osSyncPrintf("mjp=%d  xpos=%d  ypos=%d  name_contents=%d\n", this->charIndex, this->kbdX, this->kbdY,
                          this->kbdButton);
         }
-        this->nameEntryVtx[40].v.ob[0] = this->nameEntryVtx[42].v.ob[0] =
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 6].v.ob[0] =
             this->keyboardVtx[this->charIndex * 4].v.ob[0] - 6;
 
-        this->nameEntryVtx[41].v.ob[0] = this->nameEntryVtx[43].v.ob[0] = this->nameEntryVtx[40].v.ob[0] + 0x18;
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.ob[0] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[0] + 0x18;
 
-        this->nameEntryVtx[40].v.ob[1] = this->nameEntryVtx[41].v.ob[1] =
+        this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 5].v.ob[1] =
             this->keyboardVtx[this->charIndex * 4].v.ob[1] + 6;
     }
 
-    this->nameEntryVtx[42].v.ob[1] = this->nameEntryVtx[43].v.ob[1] = this->nameEntryVtx[40].v.ob[1] - 24;
+    this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 6].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 7].v.ob[1] = this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 4].v.ob[1] - 24;
 
-    gSPVertex(POLY_OPA_DISP++, &this->nameEntryVtx[36], 8, 0);
+    gSPVertex(POLY_OPA_DISP++, &this->nameEntryVtx[NAME_ENTRY_CURSOR_VTX + 0], 8, 0);
     gDPPipeSync(POLY_OPA_DISP++);
     gDPSetCombineLERP(POLY_OPA_DISP++, 1, 0, PRIMITIVE, 0, TEXEL0, 0, PRIMITIVE, 0, 1, 0, PRIMITIVE, 0, TEXEL0, 0,
                       PRIMITIVE, 0);
@@ -535,8 +590,8 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
             this->kbdY = 5;
             this->kbdX = 4;
         } else if (CHECK_BTN_ALL(input->press.button, BTN_B)) {
-            if ((this->newFileNameCharCount == 7) && (filename[7] != 0xDF)) {
-                for (i = this->newFileNameCharCount; i < 7; i++) {
+            if ((this->newFileNameCharCount == PLAYER_NAME_LAST) && (filename[PLAYER_NAME_LAST] != 0xDF)) {
+                for (i = this->newFileNameCharCount; i < PLAYER_NAME_LAST; i++) {
                     filename[i] = filename[i + 1];
                 }
                 filename[i] = 0xDF;
@@ -557,7 +612,7 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                     sLastCharIndex = -1;
                     CVarSetInteger(CVAR_GENERAL("OnFileSelectNameEntry"), 0);
                 } else {
-                    for (i = this->newFileNameCharCount; i < 7; i++) {
+                    for (i = this->newFileNameCharCount; i < PLAYER_NAME_LAST; i++) {
                         filename[i] = filename[i + 1];
                     }
                     filename[i] = 0xDF;
@@ -594,8 +649,8 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                                                      &gSfxDefaultReverb);
                                 filename[this->newFileNameCharCount] = gKeyboardCharactersHiragana[this->charIndex];
                                 this->newFileNameCharCount++;
-                                if (this->newFileNameCharCount >= 8) {
-                                    this->newFileNameCharCount = 7;
+                                if (this->newFileNameCharCount >= PLAYER_NAME_LEN) {
+                                    this->newFileNameCharCount = PLAYER_NAME_LAST;
                                 }
                             }
                         }
@@ -623,8 +678,8 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                                                      &gSfxDefaultReverb);
                                 filename[this->newFileNameCharCount] = gKeyboardCharactersKatakana[this->charIndex];
                                 this->newFileNameCharCount++;
-                                if (this->newFileNameCharCount >= 8) {
-                                    this->newFileNameCharCount = 7;
+                                if (this->newFileNameCharCount >= PLAYER_NAME_LEN) {
+                                    this->newFileNameCharCount = PLAYER_NAME_LAST;
                                 }
                             }
                         }
@@ -639,8 +694,8 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                                                  &gSfxDefaultReverb);
                             filename[this->newFileNameCharCount] = gKeyboardCharactersAlphanumeric[this->charIndex];
                             this->newFileNameCharCount++;
-                            if (this->newFileNameCharCount >= 8) {
-                                this->newFileNameCharCount = 7;
+                            if (this->newFileNameCharCount >= PLAYER_NAME_LEN) {
+                                this->newFileNameCharCount = PLAYER_NAME_LAST;
                             }
                         }
                     }
@@ -671,8 +726,8 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                             Audio_PlaySfxGeneral(NA_SE_SY_WIN_OPEN, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
                                                  &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
                         } else if (this->kbdButton == 3) {
-                            if (this->newFileNameCharCount == 7 && filename[7] != 0xDF) {
-                                for (i = this->newFileNameCharCount; i < 7; i++) {
+                            if (this->newFileNameCharCount == PLAYER_NAME_LAST && filename[PLAYER_NAME_LAST] != 0xDF) {
+                                for (i = this->newFileNameCharCount; i < PLAYER_NAME_LAST; i++) {
                                     filename[i] = filename[i + 1];
                                 }
                                 filename[i] = 0xDF;
@@ -684,7 +739,7 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                                 if (this->newFileNameCharCount < 0) {
                                     this->newFileNameCharCount = 0;
                                 }
-                                for (i = this->newFileNameCharCount; i < 7; i++) {
+                                for (i = this->newFileNameCharCount; i < PLAYER_NAME_LAST; i++) {
                                     filename[i] = filename[i + 1];
                                 }
                                 filename[i] = 0xDF;
@@ -694,7 +749,7 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                             }
                         } else if (this->kbdButton == 4) {
                             validName = false;
-                            for (i = 0; i < 8; i++) {
+                            for (i = 0; i < PLAYER_NAME_LEN; i++) {
                                 if (filename[i] != 0xDF) {
                                     validName = true;
                                     break;
@@ -727,8 +782,8 @@ void FileChoose_DrawNameEntryNES(GameState* thisx) {
                     Audio_PlaySfxGeneral(NA_SE_SY_FSEL_CURSOR, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
                                          &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
                     this->newFileNameCharCount++;
-                    if (this->newFileNameCharCount >= 8) {
-                        this->newFileNameCharCount = 7;
+                    if (this->newFileNameCharCount >= PLAYER_NAME_LEN) {
+                        this->newFileNameCharCount = PLAYER_NAME_LAST;
                     }
                 } else if (CHECK_BTN_ALL(input->press.button, BTN_CLEFT)) {
                     Audio_PlaySfxGeneral(NA_SE_SY_FSEL_CURSOR, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,

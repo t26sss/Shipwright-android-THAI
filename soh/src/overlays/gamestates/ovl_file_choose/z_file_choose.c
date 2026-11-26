@@ -13,6 +13,7 @@
 #include "soh/frame_interpolation.h"
 #include <soh/GameVersions.h>
 #include "objects/object_mag/object_mag.h"
+extern s16 Thai_NameCharAdvance(u8 nameChar, s16* isMark);
 #include "objects/gameplay_keep/gameplay_keep.h"
 #include "soh_assets.h"
 #include "soh/Enhancements/boss-rush/BossRush.h"
@@ -495,6 +496,10 @@ void FileChoose_UpdateMainMenu(GameState* thisx) {
                     defaultName = isDefaultNameOptionSet ? &linkNameNES : &emptyNameNES;
                 }
                 memcpy(Save_GetSaveMetaInfo(this->buttonIndex)->playerName, defaultName, 8);
+                // THAI: pad slots past 8 (0x3E for the PAL tables, space otherwise)
+                memset(Save_GetSaveMetaInfo(this->buttonIndex)->playerName + 8,
+                       ((void*)defaultName == (void*)emptyName || (void*)defaultName == (void*)linkName) ? 0x3E : 0xDF,
+                       PLAYER_NAME_LEN - 8);
             } else if (!FileChoose_IsSaveCompatible(Save_GetSaveMetaInfo(this->buttonIndex))) {
                 Audio_PlaySfxGeneral(NA_SE_SY_FSEL_ERROR, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
                                      &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
@@ -1551,13 +1556,28 @@ void FileChoose_DrawFileInfo(GameState* thisx, s16 fileIndex, s16 isActive) {
 
     // draw file name
     if (this->nameAlpha[fileIndex] != 0) {
-        gSPVertex(POLY_OPA_DISP++, &this->windowContentVtx[D_8081284C[fileIndex]], 32, 0);
         gDPSetPrimColor(POLY_OPA_DISP++, 0x00, 0x00, sNamePrimColors[isActive][0], sNamePrimColors[isActive][1],
                         sNamePrimColors[isActive][2], this->nameAlpha[fileIndex]);
 
         // #region SOH [NTSC] - Convert playerName to display appropriately
+        // THAI: names can be PLAYER_NAME_LEN glyphs long but windowContentVtx only has room for 8 name glyphs, so the
+        // name is drawn from a temporary vertex buffer (2 batches of 8 glyphs). If it is wider than the name plate it
+        // is squeezed (advance and glyph width) to fit.
         u8 filenameLanguage = Save_GetSaveMetaInfo(fileIndex)->filenameLanguage;
-        for (i = 0, vtxOffset = 0; vtxOffset < 0x20; i++, vtxOffset += 4) {
+        const s32 kNamePlateMaxWidth = 94;
+        Vtx* nameVtx = Graph_Alloc(this->state.gfxCtx, PLAYER_NAME_LEN * 4 * sizeof(Vtx));
+        Vtx* slotVtx = &this->windowContentVtx[D_8081284C[fileIndex]];
+        u8 nameChars[PLAYER_NAME_LEN];
+        s16 nameAdv[PLAYER_NAME_LEN];
+        s16 nameMark[PLAYER_NAME_LEN];
+        s32 nameTotal = 0;
+        s16 thaiCurX = 0;
+        s16 thaiLastX = 0;
+        s16 thaiNameX0 = slotVtx[0].v.ob[0];
+        s16 slotWidth = slotVtx[1].v.ob[0] - slotVtx[0].v.ob[0];
+        bool thaiLayout = !(ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN);
+
+        for (i = 0; i < PLAYER_NAME_LEN; i++) {
             u8 curChar = Save_GetSaveMetaInfo(fileIndex)->playerName[i];
             if (ResourceMgr_GetGameRegion(0) == GAME_REGION_PAL && gSaveContext.language != LANGUAGE_JPN) {
                 if (filenameLanguage != NAME_LANGUAGE_PAL) {
@@ -1589,8 +1609,57 @@ void FileChoose_DrawFileInfo(GameState* thisx, s16 fileIndex, s16 isActive) {
                     }
                 }
             }
-            // #endregion
-            FileChoose_DrawCharacter(this->state.gfxCtx, sp54->fontBuf + curChar * FONT_CHAR_TEX_SIZE, vtxOffset);
+            nameChars[i] = curChar;
+            nameMark[i] = 0;
+            nameAdv[i] = 0;
+            if (thaiLayout) {
+                // THAI: place each name glyph by its own advance instead of a fixed pitch
+                nameAdv[i] = Thai_NameCharAdvance(curChar, &nameMark[i]);
+                nameTotal += nameAdv[i];
+            }
+            // every glyph quad starts as a copy of the last real slot (colour, tex coords, y position)
+            memcpy(&nameVtx[i * 4], &slotVtx[((i < 8) ? i : 7) * 4], 4 * sizeof(Vtx));
+        }
+
+        {
+            s32 scaleNum = (nameTotal > kNamePlateMaxWidth) ? kNamePlateMaxWidth : 1;
+            s32 scaleDen = (nameTotal > kNamePlateMaxWidth) ? nameTotal : 1;
+            s16 glyphWidth = (slotWidth * scaleNum) / scaleDen;
+            if (glyphWidth < 1) {
+                glyphWidth = 1;
+            }
+
+            for (i = 0; i < PLAYER_NAME_LEN; i++) {
+                Vtx* nv = &nameVtx[i * 4];
+                if (thaiLayout) {
+                    s16 adv = (nameAdv[i] * scaleNum) / scaleDen;
+                    s16 left = (i == 0) ? thaiNameX0 : (nameMark[i] ? thaiLastX : thaiCurX);
+
+                    if (i == 0) {
+                        thaiCurX = thaiNameX0;
+                    }
+                    nv[0].v.ob[0] = nv[2].v.ob[0] = left;
+                    nv[1].v.ob[0] = nv[3].v.ob[0] = left + glyphWidth;
+                    if (!nameMark[i]) {
+                        thaiLastX = left;
+                        thaiCurX = left + adv;
+                    }
+                } else if (i >= 8) {
+                    // PAL layout keeps the fixed pitch, continue it past the 8th slot
+                    s16 left = slotVtx[7 * 4].v.ob[0] + (i - 7) * WREG(40);
+                    nv[0].v.ob[0] = nv[2].v.ob[0] = left;
+                    nv[1].v.ob[0] = nv[3].v.ob[0] = left + slotWidth;
+                }
+            }
+        }
+        // #endregion
+
+        for (i = 0, vtxOffset = 0; i < PLAYER_NAME_LEN; i++, vtxOffset += 4) {
+            if ((i & 7) == 0) {
+                gSPVertex(POLY_OPA_DISP++, &nameVtx[i * 4], 32, 0);
+                vtxOffset = 0;
+            }
+            FileChoose_DrawCharacter(this->state.gfxCtx, sp54->fontBuf + nameChars[i] * FONT_CHAR_TEX_SIZE, vtxOffset);
         }
     }
 

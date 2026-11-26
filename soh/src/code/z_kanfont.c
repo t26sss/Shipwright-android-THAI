@@ -4225,6 +4225,13 @@ void Font_LoadOrderedFont(Font* font) {
     }
 }
 
+// THAI: remembers which glyph code sits at each font-buffer index (used to size player-name glyphs)
+static u16 sNameGlyphCode[256];
+
+u16 Font_GetNameGlyphCodeNTSC(u8 index) {
+    return sNameGlyphCode[index];
+}
+
 // #region SOH [NTSC]
 void Font_LoadOrderedFontNTSC(Font* font) {
     s32 len;
@@ -4257,6 +4264,9 @@ void Font_LoadOrderedFontNTSC(Font* font) {
         if (font->msgBufWide[codePointIndex] != 0xA) {
             offset = Kanji_OffsetFromShiftJIS(font->msgBufWide[codePointIndex]);
             offset /= FONT_CHAR_TEX_SIZE;
+            if ((fontBufIndex * 8) / FONT_CHAR_TEX_SIZE < 256) {
+                sNameGlyphCode[(fontBufIndex * 8) / FONT_CHAR_TEX_SIZE] = font->msgBufWide[codePointIndex];
+            }
             memcpy(&font->fontBuf[fontBufIndex * 8], kanjiFontTbl[offset], strlen(kanjiFontTbl[offset]) + 1);
             // DmaMgr_RequestSync(&font->fontBuf[fontBufIndex * 8], (uintptr_t)_kanjiSegmentStart + offset,
             // FONT_CHAR_TEX_SIZE);

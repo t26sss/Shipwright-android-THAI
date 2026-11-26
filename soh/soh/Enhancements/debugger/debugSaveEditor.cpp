@@ -544,32 +544,32 @@ void DrawGeneralTab() {
     ImGui::Spacing();
 
     // Player name input - only editable when file is loaded
-    static char playerNameInput[9] = "";
+    static char playerNameInput[PLAYER_NAME_LEN + 1] = "";
     static bool nameInputInitialized = false;
 
     if (!canEditName) {
         // Read-only display when no file is loaded
         ImGui::BeginDisabled();
-        ImGui::InputText("##PlayerNameDisabled", playerNameInput, 9);
+        ImGui::InputText("##PlayerNameDisabled", playerNameInput, PLAYER_NAME_LEN + 1);
         ImGui::EndDisabled();
     } else {
         // Convert current name to ASCII for display
         if (!nameInputInitialized || ImGui::IsWindowFocused()) {
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < PLAYER_NAME_LEN; i++) {
                 playerNameInput[i] =
                     decodePlayerNameChar(gSaveContext.playerName[i], gSaveContext.ship.filenameLanguage);
             }
-            playerNameInput[8] = '\0';
+            playerNameInput[PLAYER_NAME_LEN] = '\0';
             nameInputInitialized = true;
         }
 
         PushStyleInput(THEME_COLOR);
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10.0f, 8.0f));
-        if (ImGui::InputText("##PlayerNameInput", playerNameInput, 9)) {
+        if (ImGui::InputText("##PlayerNameInput", playerNameInput, PLAYER_NAME_LEN + 1)) {
             // Convert ASCII input back to game encoding
             bool ended = false;
-            for (int i = 0; i < 8; i++) {
+            for (int i = 0; i < PLAYER_NAME_LEN; i++) {
                 ended = ended || playerNameInput[i] == '\0';
                 gSaveContext.playerName[i] =
                     encodePlayerNameChar(ended ? ' ' : playerNameInput[i], gSaveContext.ship.filenameLanguage);
@@ -600,7 +600,7 @@ void DrawGeneralTab() {
         ImGui::EndDisabled();
     }
     if (canEditName && gSaveContext.ship.filenameLanguage != oldNameLanguage) {
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < PLAYER_NAME_LEN; i++) {
             gSaveContext.playerName[i] = encodePlayerNameChar(
                 decodePlayerNameChar(gSaveContext.playerName[i], oldNameLanguage), gSaveContext.ship.filenameLanguage);
         }

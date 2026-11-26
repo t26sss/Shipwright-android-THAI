@@ -946,7 +946,16 @@ void Message_HandleOcarina(PlayState* play) {
 }
 
 // Taken from decomped N64 1.0 z_message https://decomp.me/scratch/462bn
+// THAI: per-character advance of player-name glyphs drawn through code 0x874F
+static u8 sThaiNameAdv[64];  // cursor advance after each player-name glyph
+static u8 sThaiNameBack[64]; // cursor shift before drawing (combining marks overlay the previous glyph)
+static s32 sThaiNameIdx;
+static s32 sThaiNameCount;
+static s32 sThaiPrevAdv;
+extern u16 Font_GetNameGlyphCodeNTSC(u8 index);
+
 void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
+    sThaiNameIdx = 0;
     MessageContext* msgCtx = &play->msgCtx;
     Font* font = &play->msgCtx.font;
     u16 character;
@@ -1230,6 +1239,10 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
                     Audio_PlaySfxGeneral(0, &gSfxDefaultPos, 4, &gSfxDefaultFreqAndVolScale,
                                          &gSfxDefaultFreqAndVolScale, &gSfxDefaultReverb);
                 }
+                if (character == 0x874F) {
+                    // THAI: combining marks in a player name are drawn over the previous glyph
+                    msgCtx->textPosX -= sThaiNameBack[sThaiNameIdx < 64 ? sThaiNameIdx : 63];
+                }
                 Message_DrawTextChar(play, &font->charTexBuf[charTexIdx], &gfx);
                 charTexIdx += FONT_CHAR_TEX_SIZE;
 
@@ -1254,8 +1267,24 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
                     case 0x8145:
                         msgCtx->textPosX += 10;
                         break;
+                    case 0x8140: // THAI: word space
+                        msgCtx->textPosX += 8;
+                        break;
+                    case 0x8E9E: // time-unit glyph referenced from C code
+                        msgCtx->textPosX += 14;
+                        break;
+                    case 0x874F: // player name character: width recorded when the name was decoded
+                        msgCtx->textPosX += sThaiNameAdv[sThaiNameIdx < 64 ? sThaiNameIdx : 63];
+                        sThaiNameIdx++;
+                        break;
                     default:
-                        msgCtx->textPosX += (s32)(16.0f * (R_TEXT_CHAR_SCALE / 100.0f));
+                        // THAI: for high bytes 0x88-0x94 the advance in pixels is (hi - 0x84) = 4..16.
+                        // Any other code advances a full 16 pixels.
+                        if ((u8)((character >> 8) - 0x88) < 13) {
+                            msgCtx->textPosX += (character >> 8) - 0x84;
+                        } else {
+                            msgCtx->textPosX += 16;
+                        }
                         break;
                 }
                 break;
@@ -1637,6 +1666,110 @@ void Message_LoadItemIcon(PlayState* play, u16 itemId, s16 y) {
     msgCtx->choiceNum = 1;
 }
 
+// THAI: advance of one player-name character on the file select screen.
+s16 Thai_NameCharAdvance(u8 nameChar, s16* isMark) {
+    s32 asc = -1;
+    s32 adv = 16;
+
+    *isMark = 0;
+    if (nameChar == 0xDF) {
+        asc = ' ';
+    } else if (nameChar == 0xEA) {
+        asc = '.';
+    } else if (nameChar == 0xE4) {
+        asc = '-';
+    } else if (nameChar < 0xA) {
+        asc = nameChar + '0';
+    } else if (nameChar >= 0xAB && nameChar < 0xC5) {
+        asc = nameChar - 0x6A;
+    } else if (nameChar >= 0xC5 && nameChar < 0xDF) {
+        asc = nameChar - 0x64;
+    }
+
+    if (asc >= ' ') {
+        adv = (s32)(sFontWidths[asc - ' '] + 3.0f);
+        if (adv > 16) {
+            adv = 16;
+        }
+    } else {
+        u16 g = Font_GetNameGlyphCodeNTSC(nameChar);
+        u8 hi = g >> 8;
+
+        if (hi == 0x96) {
+            *isMark = 1;
+            adv = 0;
+        } else if (g == 0x8E9E) {
+            adv = 14;
+        } else if ((u8)(hi - 0x88) < 13) {
+            adv = hi - 0x84;
+        }
+    }
+    return (s16)adv;
+}
+
+// THAI: copies one player-name glyph into the character texture buffer and records its cursor movement.
+static void Thai_AddNameGlyph(Font* font, MessageContext* msgCtx, u8 nameChar, s32* charTexIdxPtr,
+                              s16* decodedBufPosPtr) {
+    s32 asc = -1;
+    s32 adv = 16;
+    s32 back = 0;
+    s32 isMark = 0;
+    s32 j;
+
+    if (nameChar == 0xDF) {
+        asc = ' ';
+    } else if (nameChar == 0xEA) {
+        asc = '.';
+    } else if (nameChar == 0xE4) {
+        asc = '-';
+    } else if (nameChar < 0xA) {
+        asc = nameChar + '0';
+    } else if (nameChar >= 0xAB && nameChar < 0xC5) {
+        asc = nameChar - 0x6A;
+    } else if (nameChar >= 0xC5 && nameChar < 0xDF) {
+        asc = nameChar - 0x64;
+    }
+
+    if (asc >= ' ') {
+        // Latin letters, digits and punctuation use the proportional English font
+        Font_LoadChar(font, asc - ' ', *charTexIdxPtr);
+        adv = (s32)(sFontWidths[asc - ' '] + 1.0f);
+    } else {
+        u8* fontBuf = &font->fontBuf[(nameChar * 32) << 2];
+        u16 g = Font_GetNameGlyphCodeNTSC(nameChar);
+        u8 hi = g >> 8;
+
+        for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
+            font->charTexBuf[*charTexIdxPtr + j + 0] = fontBuf[j + 0];
+            font->charTexBuf[*charTexIdxPtr + j + 1] = fontBuf[j + 1];
+            font->charTexBuf[*charTexIdxPtr + j + 2] = fontBuf[j + 2];
+            font->charTexBuf[*charTexIdxPtr + j + 3] = fontBuf[j + 3];
+        }
+        if (hi == 0x96) {
+            isMark = 1;
+        } else if (g == 0x8E9E) {
+            adv = 14;
+        } else if ((u8)(hi - 0x88) < 13) {
+            adv = hi - 0x84;
+        }
+    }
+
+    if (isMark) {
+        back = sThaiPrevAdv;
+        adv = sThaiPrevAdv;
+    } else {
+        sThaiPrevAdv = adv;
+    }
+
+    if (sThaiNameCount < 64) {
+        sThaiNameBack[sThaiNameCount] = back;
+        sThaiNameAdv[sThaiNameCount] = adv;
+        sThaiNameCount++;
+    }
+    msgCtx->msgBufDecodedWide[(*decodedBufPosPtr)++] = MESSAGE_NAME_JPN;
+    *charTexIdxPtr += FONT_CHAR_TEX_SIZE;
+}
+
 // #region SOH [NTSC] - Add support for filenames on different versions
 bool Message_DecodeName(PlayState* play, s16* decodedBufPosPtr, s32* charTexIdxPtr) {
     s32 i;
@@ -1752,15 +1885,7 @@ bool Message_DecodeName(PlayState* play, s16* decodedBufPosPtr, s32* charTexIdxP
             if (gSaveContext.language == LANGUAGE_JPN && !sDisplayNextMessageAsEnglish) {
                 for (i = 0; i < playerNameLen; i++) {
                     curChar2 = gSaveContext.playerName[i];
-                    u8* fontBuf = &font->fontBuf[(curChar2 * 32) << 2];
-                    msgCtx->msgBufDecodedWide[(*decodedBufPosPtr)++] = MESSAGE_NAME_JPN;
-                    for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
-                        font->charTexBuf[*charTexIdxPtr + j + 0] = fontBuf[j + 0];
-                        font->charTexBuf[*charTexIdxPtr + j + 1] = fontBuf[j + 1];
-                        font->charTexBuf[*charTexIdxPtr + j + 2] = fontBuf[j + 2];
-                        font->charTexBuf[*charTexIdxPtr + j + 3] = fontBuf[j + 3];
-                    }
-                    *charTexIdxPtr += FONT_CHAR_TEX_SIZE;
+                    Thai_AddNameGlyph(font, msgCtx, curChar2, charTexIdxPtr, decodedBufPosPtr);
                 }
             } else { // LANGUAGE_ENG
                 for (i = 0; i < playerNameLen; i++) {
@@ -1780,15 +1905,7 @@ bool Message_DecodeName(PlayState* play, s16* decodedBufPosPtr, s32* charTexIdxP
             if (gSaveContext.language == LANGUAGE_JPN && !sDisplayNextMessageAsEnglish) {
                 for (i = 0; i < playerNameLen; i++) {
                     curChar2 = gSaveContext.playerName[i];
-                    u8* fontBuf = &font->fontBuf[(curChar2 * 32) << 2];
-                    msgCtx->msgBufDecodedWide[(*decodedBufPosPtr)++] = MESSAGE_NAME_JPN;
-                    for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
-                        font->charTexBuf[*charTexIdxPtr + j + 0] = fontBuf[j + 0];
-                        font->charTexBuf[*charTexIdxPtr + j + 1] = fontBuf[j + 1];
-                        font->charTexBuf[*charTexIdxPtr + j + 2] = fontBuf[j + 2];
-                        font->charTexBuf[*charTexIdxPtr + j + 3] = fontBuf[j + 3];
-                    }
-                    *charTexIdxPtr += FONT_CHAR_TEX_SIZE;
+                    Thai_AddNameGlyph(font, msgCtx, curChar2, charTexIdxPtr, decodedBufPosPtr);
                 }
             } else { // LANGUAGE_ENG
                 for (i = 0; i < playerNameLen; i++) {
@@ -1892,9 +2009,13 @@ void Message_DecodeJPN(PlayState* play) {
     s16 decodedBufPos = 0;
     s16 i;
     s16 j;
+
     f32 timeInSeconds;
     MessageContext* msgCtx = &play->msgCtx;
     Font* font = &play->msgCtx.font;
+
+    sThaiNameCount = 0;
+    sThaiPrevAdv = 0;
 
     while (true) {
         curChar = msgCtx->msgBufDecodedWide[decodedBufPos] = font->msgBufWide[msgCtx->msgBufPos];
@@ -1944,7 +2065,7 @@ void Message_DecodeJPN(PlayState* play) {
         if (curChar == MESSAGE_NAME_JPN) {
             // #region SOH [NTSC] - Support multiple names
             if (!Message_DecodeName(play, &decodedBufPos, &charTexIdx)) {
-                for (playerNameLen = 8; playerNameLen > 0; playerNameLen--) {
+                for (playerNameLen = PLAYER_NAME_LEN; playerNameLen > 0; playerNameLen--) {
                     if (gSaveContext.playerName[playerNameLen - 1] != 0xDF) {
                         break;
                     }
@@ -1953,6 +2074,10 @@ void Message_DecodeJPN(PlayState* play) {
                     curChar = gSaveContext.playerName[i];
                     // FAKE? Figure out what best way to match is
                     fontBuf = &font->fontBuf[(curChar * 32) << 2];
+                    if (sThaiNameCount < 64) {
+                        sThaiNameBack[sThaiNameCount] = 0;
+                        sThaiNameAdv[sThaiNameCount++] = 16;
+                    }
                     msgCtx->msgBufDecodedWide[decodedBufPos + i] = MESSAGE_NAME_JPN;
 
                     for (j = 0; j < FONT_CHAR_TEX_SIZE; j += 4) {
@@ -2719,7 +2844,7 @@ void Message_OpenText(PlayState* play, u16 textId) {
         R_TEXT_INIT_XPOS = 20;
         YREG(1) = 48;
     } else if (gSaveContext.language == LANGUAGE_JPN && !sDisplayNextMessageAsEnglish) {
-        R_TEXT_CHAR_SCALE = 88;
+        R_TEXT_CHAR_SCALE = 100; // THAI: was 88 (glyphs are drawn at full 16px size)
         R_TEXT_LINE_SPACING = 18;
         R_TEXT_INIT_XPOS = 50;
     } else {
