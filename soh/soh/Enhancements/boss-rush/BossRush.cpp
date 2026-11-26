@@ -493,7 +493,8 @@ void BossRush_HandleCompleteBoss(PlayState* play) {
 extern "C" void BossRush_InitSave() {
 
     // Set player name to Link using PAL charset for few textboxes that show up during Boss Rush.
-    static const u8 brPlayerName[] = { 0x15, 0x12, 0x17, 0x14, 0x3E, 0x3E, 0x3E, 0x3E };
+    static const u8 brPlayerName[PLAYER_NAME_LEN] = { 0x15, 0x12, 0x17, 0x14, 0x3E, 0x3E, 0x3E, 0x3E,
+                                                      0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E, 0x3E };
     static_assert(sizeof(brPlayerName) == sizeof(gSaveContext.playerName));
     std::copy(std::begin(brPlayerName), std::end(brPlayerName), gSaveContext.playerName);
     gSaveContext.ship.filenameLanguage = NAME_LANGUAGE_PAL;
