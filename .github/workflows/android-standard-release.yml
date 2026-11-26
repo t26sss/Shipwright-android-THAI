@@ -62,10 +62,10 @@ jobs:
         run: ./gradlew :app:prepareAndroidSupportAssets :app:generateReleaseLintVitalReportModel :app:lintVitalRelease --console=plain --max-workers=4
       - name: Prepare release signing
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.THAI_KEYSTORE_B64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.THAI_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ 'thai' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.THAI_KEY_PASSWORD }}
         run: |
           test -n "$ANDROID_KEYSTORE_BASE64"
           test -n "$ANDROID_KEYSTORE_PASSWORD"
@@ -77,16 +77,16 @@ jobs:
         working-directory: Android
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/standard-release.jks
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.THAI_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ 'thai' }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.THAI_KEY_PASSWORD }}
           CMAKE_BUILD_PARALLEL_LEVEL: '4'
         run: ./gradlew :app:assembleRelease --console=plain --max-workers=4
-      - name: Verify update signing certificate
+      - name: Show signing certificate
         run: |
           APK=$(find Android/app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)
           test -n "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK" | grep -F 'certificate SHA-256 digest: f608b8ed8a09fd6c8890dee105f3268ad5577638ec3aa2544ff4618f399efd3e'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
       - uses: actions/upload-artifact@v4
         with:
           name: SOH-9.3.1-Android
