@@ -2,7 +2,7 @@ name: Standard Android 9.3.1 Release APK
 
 on:
   push:
-    branches: [android-9.3.1-integration]
+    branches: [thai-9.3.1]
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   android:
-    if: github.repository == 'linkzenic/Shipwright-Android'
+    if: github.repository == 't26sss/Shipwright-android-THAI'
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     steps:
