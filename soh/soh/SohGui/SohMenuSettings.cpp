@@ -132,6 +132,25 @@ static void SetAndroidTouchLeftStickFloating(bool floating) {
     env->DeleteLocalRef(activity);
 }
 
+// Calls a no-argument void method on the Android activity (used by the touch layout editor).
+static void CallAndroidActivityVoid(const char* methodName) {
+    JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    if (env == nullptr || activity == nullptr) {
+        return;
+    }
+
+    jclass activityClass = env->GetObjectClass(activity);
+    if (activityClass != nullptr) {
+        jmethodID method = env->GetMethodID(activityClass, methodName, "()V");
+        if (method != nullptr) {
+            env->CallVoidMethod(activity, method);
+        }
+        env->DeleteLocalRef(activityClass);
+    }
+    env->DeleteLocalRef(activity);
+}
+
 static void OpenAndroidDataFolderChooser() {
     JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
@@ -632,6 +651,28 @@ void SohMenu::AddMenuSettings() {
         })
         .Options(CheckboxOptions().DefaultValue(true).Tooltip(
             "When disabled, the left touch stick stays fixed in the lower-left corner."));
+    AddWidget(path, "Edit Touch Button Positions", WIDGET_BUTTON)
+        .RaceDisable(false)
+        .Callback([](WidgetInfo& info) {
+            // Close the menu first so the on-screen buttons can be dragged.
+            std::shared_ptr<Menu> menu =
+                static_pointer_cast<Menu>(Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetMenu());
+            if (menu != nullptr && !menu->IsMenuPopped()) {
+                menu->ToggleVisibility();
+            }
+            CallAndroidActivityVoid("openTouchLayoutEditorFromNative");
+        })
+        .Options(ButtonOptions().Tooltip(
+            "Closes this menu and lets you drag the touch buttons and stick. Long-press the touch toggle "
+            "button to save and exit."));
+    AddWidget(path, "Adjust Touch Button Size", WIDGET_BUTTON)
+        .RaceDisable(false)
+        .Callback([](WidgetInfo& info) { CallAndroidActivityVoid("openTouchSizeEditorFromNative"); })
+        .Options(ButtonOptions().Tooltip("Choose a touch button or the stick and change its size (50%-200%)."));
+    AddWidget(path, "Reset Touch Layout", WIDGET_BUTTON)
+        .RaceDisable(false)
+        .Callback([](WidgetInfo& info) { CallAndroidActivityVoid("resetTouchLayoutFromNative"); })
+        .Options(ButtonOptions().Tooltip("Restores the default position and size of all touch buttons."));
     AddWidget(path, "Disable Touch Controls", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_SETTING("TouchControls.Disabled"))
         .RaceDisable(false)
