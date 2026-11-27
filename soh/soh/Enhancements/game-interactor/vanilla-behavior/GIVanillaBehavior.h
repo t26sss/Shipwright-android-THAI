@@ -4184,4 +4184,8 @@ typedef enum {
     // A handler returns true only after changing the player to the vanilla jump action.
     VB_PLAYER_TRY_MANUAL_JUMP,
 
+    // Whether the "roll button" counts as pressed this frame (roll / Z-target hop / backflip).
+    // Default: true when A was pressed this frame. args: Player*, PlayState*, Input*.
+    VB_PLAYER_ROLL_BUTTON_PRESSED,
+
 } GIVanillaBehavior;

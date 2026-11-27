@@ -674,6 +674,16 @@ void SohMenu::AddMenuSettings() {
         .RaceDisable(false)
         .Callback([](WidgetInfo& info) { CallAndroidActivityVoid("resetTouchLayoutFromNative"); })
         .Options(ButtonOptions().Tooltip(T("Restores the default position and size of all touch buttons.")));
+    AddWidget(path, T("Separate Roll Button"), WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("SeparateRollButton"))
+        .Options(CheckboxOptions().Tooltip(
+            T("A no longer rolls, hops or backflips. Only the on-screen Roll button does. Disabled during race "
+              "lockout.")));
+    AddWidget(path, T("Sprint Button (Stamina)"), WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("TouchSprint"))
+        .Options(CheckboxOptions().Tooltip(
+            T("Hold the on-screen Run button to run faster. Stamina drains while sprinting; at zero you get tired "
+              "and move slower until it recovers. Disabled during race lockout.")));
     AddWidget(path, T("Disable Touch Controls"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_SETTING("TouchControls.Disabled"))
         .RaceDisable(false)

@@ -6373,10 +6373,17 @@ void func_8083BCD0(Player* this, PlayState* play, s32 controlStickDirection) {
     Player_PlaySfx(this, ((controlStickDirection << 0xE) == 0x8000) ? NA_SE_PL_ROLL : NA_SE_PL_SKIP);
 }
 
+// True when the button that performs rolls / hops / backflips was pressed this frame.
+// Vanilla: A. The "Separate Roll Button" enhancement can replace it with a dedicated touch button.
+static s32 Player_RollButtonPressed(Player* this, PlayState* play) {
+    return GameInteractor_Should(VB_PLAYER_ROLL_BUTTON_PRESSED, CHECK_BTN_ALL(sControlInput->press.button, BTN_A),
+                                 this, play, sControlInput);
+}
+
 s32 Player_ActionHandler_10(Player* this, PlayState* play) {
     s32 controlStickDirection;
 
-    if (CHECK_BTN_ALL(sControlInput->press.button, BTN_A) &&
+    if (Player_RollButtonPressed(this, play) &&
         (play->roomCtx.curRoom.behaviorType1 != ROOM_BEHAVIOR_TYPE1_2) && (sFloorType != 7) &&
         (SurfaceType_GetFloorEffect(&play->colCtx, this->actor.floorPoly, this->actor.floorBgId) != FLOOR_EFFECT_1)) {
         controlStickDirection = this->controlStickDirections[this->controlStickDataIndex];
@@ -6485,9 +6492,12 @@ void func_8083C148(Player* this, PlayState* play) {
  * even if they occur.
  */
 s32 Player_ActionHandler_Roll(Player* this, PlayState* play) {
+    s32 aPressed = CHECK_BTN_ALL(sControlInput->press.button, BTN_A);
+    s32 rollPressed = Player_RollButtonPressed(this, play);
+
     if (!Player_UpdateHostileLockOn(this) && !sUpperBodyIsBusy && !(this->stateFlags1 & PLAYER_STATE1_ON_HORSE) &&
-        CHECK_BTN_ALL(sControlInput->press.button, BTN_A)) {
-        if (Player_TryRoll(this, play)) {
+        (aPressed || rollPressed)) {
+        if (rollPressed && Player_TryRoll(this, play)) {
             return true;
         } else if ((this->putAwayCooldownTimer == 0) && (this->heldItemAction >= PLAYER_IA_SWORD_MASTER)) {
             Player_UseItem(play, this, ITEM_NONE);

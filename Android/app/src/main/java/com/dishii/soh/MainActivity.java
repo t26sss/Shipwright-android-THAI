@@ -44,6 +44,9 @@ import android.widget.Button;
 import android.widget.FrameLayout;
 import android.graphics.Rect;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
+import android.os.Looper;
+import android.os.Handler;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -889,6 +892,11 @@ public class MainActivity extends SDLActivity{
     public native void nativeMenuNavKey(int dir, boolean pressed);
     // Touch "Jump" button -> Manual Jump (see ManualJump.cpp). Works without any key binding.
     public native void nativeTouchJump(boolean down);
+    // Roll / sprint (see TouchActions.cpp)
+    public native void nativeTouchRoll();
+    public native boolean nativeIsSeparateRoll();
+    public native void nativeTouchSprint(boolean down);
+    public native int nativeGetStamina();
 
     public void SetFirstPersonAimingActive(boolean active) {
         mIsAiming = active;
@@ -920,7 +928,8 @@ public class MainActivity extends SDLActivity{
     private Button buttonA, buttonB, buttonX, buttonY;
     private Button buttonDpadUp, buttonDpadDown, buttonDpadLeft, buttonDpadRight;
     private Button buttonLB, buttonRB, buttonZL, buttonZR, buttonStart, buttonBack;
-    private Button buttonJump, buttonRoll;
+    private Button buttonJump, buttonRoll, buttonRun;
+    private final Handler staminaHandler = new Handler(Looper.getMainLooper());
     private Button buttonToggle;
     private FrameLayout leftJoystick;
     private ImageView leftJoystickKnob;
@@ -971,6 +980,7 @@ public class MainActivity extends SDLActivity{
             case "back": return "ปุ่ม Back";
             case "jump": return "ปุ่มกระโดด (Jump)";
             case "roll": return "ปุ่มกลิ้ง (Roll)";
+            case "run": return "ปุ่มวิ่ง (Run)";
             default: return name;
         }
     }
@@ -1016,6 +1026,7 @@ public class MainActivity extends SDLActivity{
 
         buttonJump = overlayView.findViewById(R.id.buttonJump);
         buttonRoll = overlayView.findViewById(R.id.buttonRoll);
+        buttonRun = overlayView.findViewById(R.id.buttonRun);
 
         buttonToggle = overlayView.findViewById(R.id.buttonToggle);
 
@@ -1035,6 +1046,7 @@ public class MainActivity extends SDLActivity{
         setupLookAround(rightScreenArea);
 
         setupToggleButton(buttonToggle,buttonGroup);
+        startStaminaPolling();
         applyTouchLeftStickMode();
         applyTouchControlsVisibility();
 
@@ -1058,8 +1070,8 @@ public class MainActivity extends SDLActivity{
 
     private void attachGameTouchListeners() {
         addJumpTouchListener(buttonJump);
-        // Roll is the game's own A action; this is a second A button you can place anywhere.
-        addTouchListener(buttonRoll, ControllerButtons.BUTTON_A);
+        addRollTouchListener(buttonRoll);
+        addSprintTouchListener(buttonRun);
         setupCButtons(buttonDpadUp, ControllerButtons.BUTTON_DPAD_UP);
         setupCButtons(buttonDpadDown, ControllerButtons.BUTTON_DPAD_DOWN);
         setupCButtons(buttonDpadLeft, ControllerButtons.BUTTON_DPAD_LEFT);
@@ -1239,6 +1251,7 @@ public class MainActivity extends SDLActivity{
         moveGroups.add(new MoveGroup("back", new View[]{buttonBack}, new View[]{buttonBack}));
         moveGroups.add(new MoveGroup("jump", new View[]{buttonJump}, new View[]{buttonJump}));
         moveGroups.add(new MoveGroup("roll", new View[]{buttonRoll}, new View[]{buttonRoll}));
+        moveGroups.add(new MoveGroup("run", new View[]{buttonRun}, new View[]{buttonRun}));
     }
 
     private void applySavedButtonPositions() {
@@ -1546,6 +1559,93 @@ public class MainActivity extends SDLActivity{
             boolean currentlyHidden = uiGroup.getVisibility() != View.VISIBLE;
             preferences.edit().putBoolean(PREF_TOUCH_CONTROLS_HIDDEN, !currentlyHidden).apply();
             applyTouchControlsVisibility();
+        });
+    }
+
+    // Roll: a dedicated button when "Separate Roll Button" is on, otherwise it simply acts as A.
+    private void addRollTouchListener(Button button) {
+        if (touchEditMode || button == null) {
+            return;
+        }
+        button.setOnTouchListener(new View.OnTouchListener() {
+            private boolean actsAsA = false;
+
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        if (nativeIsSeparateRoll()) {
+                            actsAsA = false;
+                            nativeTouchRoll();
+                        } else {
+                            actsAsA = true;
+                            setButton(ControllerButtons.BUTTON_A, true);
+                            nativeMenuNavKey(4, true);
+                        }
+                        setTouchButtonPressed(button, true);
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        if (actsAsA) {
+                            setButton(ControllerButtons.BUTTON_A, false);
+                            nativeMenuNavKey(4, false);
+                            actsAsA = false;
+                        }
+                        setTouchButtonPressed(button, false);
+                        return true;
+                }
+                return false;
+            }
+        });
+    }
+
+    // Sprint: hold to run faster while stamina lasts (needs "Sprint Button" enabled in Settings).
+    private void addSprintTouchListener(Button button) {
+        if (touchEditMode || button == null) {
+            return;
+        }
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    nativeTouchSprint(true);
+                    setTouchButtonPressed(button, true);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    nativeTouchSprint(false);
+                    setTouchButtonPressed(button, false);
+                    return true;
+            }
+            return false;
+        });
+    }
+
+    // Shows the stamina on the Run button: percent while fine, red "Tired" when out of breath.
+    private void startStaminaPolling() {
+        staminaHandler.removeCallbacksAndMessages(null);
+        staminaHandler.post(new Runnable() {
+            @Override
+            public void run() {
+                if (buttonRun != null && buttonRun.getVisibility() == View.VISIBLE) {
+                    int v = nativeGetStamina();
+                    if (v < 0) {
+                        buttonRun.setText("Run");
+                        if (buttonRun.getBackground() != null) buttonRun.getBackground().clearColorFilter();
+                    } else {
+                        boolean tired = v >= 1000;
+                        int pct = v % 1000;
+                        buttonRun.setText(tired ? "Tired" : "Run\n" + pct + "%");
+                        if (buttonRun.getBackground() != null) {
+                            if (tired) {
+                                buttonRun.getBackground().setColorFilter(0xAAFF3030, PorterDuff.Mode.SRC_ATOP);
+                            } else {
+                                buttonRun.getBackground().clearColorFilter();
+                            }
+                        }
+                    }
+                }
+                staminaHandler.postDelayed(this, 200);
+            }
         });
     }
 
