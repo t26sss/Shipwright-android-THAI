@@ -4,6 +4,10 @@
 #include "soh/ShipInit.hpp"
 #include "ManualJump.h"
 #include <SDL.h>
+#include <atomic>
+#ifdef __ANDROID__
+#include <jni.h>
+#endif
 
 extern "C" {
 #include "functions.h"
@@ -27,6 +31,30 @@ static PlayState* sBufferedPlay = nullptr;
 static uint32_t sVaultPressTime = 0;
 static bool sVaultPressPending = false;
 static constexpr uint32_t VAULT_BUFFER_MS = 180;
+
+// Touch "Jump" button on Android. Set from the UI thread, consumed by the game thread. It acts like
+// a press of BTN_CUSTOM_JUMP without needing any controller binding.
+static std::atomic<bool> sTouchJumpPending{ false };
+static std::atomic<uint32_t> sTouchJumpTime{ 0 };
+static constexpr uint32_t TOUCH_JUMP_WINDOW_MS = 150;
+
+static bool TouchJumpPressed() {
+    return sTouchJumpPending.load() && uint32_t(SDL_GetTicks() - sTouchJumpTime.load()) <= TOUCH_JUMP_WINDOW_MS;
+}
+
+static void ClearTouchJump() {
+    sTouchJumpPending.store(false);
+}
+
+#ifdef __ANDROID__
+extern "C" JNIEXPORT void JNICALL Java_com_dishii_soh_MainActivity_nativeTouchJump(JNIEnv* env, jobject thiz,
+                                                                                    jboolean down) {
+    if (down) {
+        sTouchJumpTime.store(SDL_GetTicks());
+        sTouchJumpPending.store(true);
+    }
+}
+#endif
 
 static void ClearVaultPress() {
     sVaultPressPending = false;
@@ -111,8 +139,9 @@ extern "C" int ManualJump_ShouldTraverseObstacle(Player* player, PlayState* play
     }
     const bool buffered = sVaultPressPending && sBufferedPlayer == player && sBufferedPlay == play &&
                           uint32_t(SDL_GetTicks() - sVaultPressTime) <= VAULT_BUFFER_MS;
-    if (CHECK_BTN_ALL(input->press.button, BTN_CUSTOM_JUMP) || buffered) {
+    if (CHECK_BTN_ALL(input->press.button, BTN_CUSTOM_JUMP) || TouchJumpPressed() || buffered) {
         ClearVaultPress();
+        ClearTouchJump();
         return true;
     }
     return false;
@@ -120,7 +149,7 @@ extern "C" int ManualJump_ShouldTraverseObstacle(Player* player, PlayState* play
 
 static bool TryManualJump(Player* player, PlayState* play, Input* input) {
     if (CanManualJump(player, play, input)) {
-        const bool pressed = CHECK_BTN_ALL(input->press.button, BTN_CUSTOM_JUMP);
+        const bool pressed = CHECK_BTN_ALL(input->press.button, BTN_CUSTOM_JUMP) || TouchJumpPressed();
         if (sVaultPressPending && uint32_t(SDL_GetTicks() - sVaultPressTime) > VAULT_BUFFER_MS) {
             ClearVaultPress();
         }
@@ -128,6 +157,7 @@ static bool TryManualJump(Player* player, PlayState* play, Input* input) {
             // Idle's ordinary handler list omits handler 12. Reuse that
             // same native handler here rather than duplicating vault logic.
             if (Player_ActionHandler_12(player, play)) {
+                ClearTouchJump();
                 return true;
             }
             if (pressed) {
@@ -150,6 +180,7 @@ static bool TryManualJump(Player* player, PlayState* play, Input* input) {
             }
         }
         ClearVaultPress();
+        ClearTouchJump();
         // The vanilla initializer selects the animation and vertical impulse using linearVelocity.
         // It does not impose a minimum horizontal speed or change yaw: zero stays zero.
         // Subsequent frames use Player_Action_8084411C and unmodified vanilla air control.
