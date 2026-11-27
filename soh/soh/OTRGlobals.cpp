@@ -2007,6 +2007,35 @@ ImFont* OTRGlobals::CreateFontWithSize(float size, std::string fontPath, bool is
         const ImWchar* glyph_ranges = isJapaneseFont ? mImGuiIo->Fonts->GetGlyphRangesJapanese() : nullptr;
         font = mImGuiIo->Fonts->AddFontFromMemoryTTF(fontData->Data, static_cast<int>(fontData->DataSize), size,
                                                      &fontConf, glyph_ranges);
+
+        // THAI: merge the Thai block (U+0E00-U+0E7F) from TH Sarabun New into every UI font, so Thai text in the
+        // menu renders with the Latin font's size/baseline. Falls back to the plain font if the file is missing.
+        if (!isJapaneseFont) {
+            // Intentionally leaked: ImGui keeps pointing at the font data until the atlas is destroyed.
+            static auto* sThaiFontData = new std::shared_ptr<Ship::Font>();
+            if (*sThaiFontData == nullptr) {
+                const std::string thaiPath = "fonts/THSarabunNew.ttf";
+                auto thaiInit = std::make_shared<Ship::ResourceInitData>();
+                thaiInit->Format = RESOURCE_FORMAT_BINARY;
+                thaiInit->Type = static_cast<uint32_t>(RESOURCE_TYPE_FONT);
+                thaiInit->ResourceVersion = 0;
+                thaiInit->Path = thaiPath;
+                *sThaiFontData = std::static_pointer_cast<Ship::Font>(
+                    Ship::Context::GetRawInstance()->GetResourceManager()->LoadResource(thaiPath, false, thaiInit));
+            }
+            if (*sThaiFontData != nullptr) {
+                // TH Sarabun New has a small x-height, so draw it larger than the Latin font next to it.
+                constexpr float kThaiFontScale = 1.3f;
+                static const ImWchar sThaiRanges[] = { 0x0E00, 0x0E7F, 0 };
+                ImFontConfig thaiConf;
+                thaiConf.MergeMode = true;
+                thaiConf.FontDataOwnedByAtlas = false;
+                thaiConf.PixelSnapH = true;
+                mImGuiIo->Fonts->AddFontFromMemoryTTF((*sThaiFontData)->Data,
+                                                      static_cast<int>((*sThaiFontData)->DataSize),
+                                                      size * kThaiFontScale, &thaiConf, sThaiRanges);
+            }
+        }
     }
     // FontAwesome fonts need to have their sizes reduced by 2.0f/3.0f in order to align correctly
     float iconFontSize = size * 2.0f / 3.0f;

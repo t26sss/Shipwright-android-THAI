@@ -25,18 +25,38 @@ std::string WrappedText(const char* text, unsigned int charactersPerLine) {
     const size_t tipLength = newText.length();
     int lastSpace = -1;
     unsigned int currentLineLength = 0;
+    unsigned int lengthAtLastSpace = 0;
     for (unsigned int currentCharacter = 0; currentCharacter < tipLength; currentCharacter++) {
-        if (newText[currentCharacter] == '\n') {
+        const unsigned char c = static_cast<unsigned char>(newText[currentCharacter]);
+        // THAI: count characters instead of UTF-8 bytes, otherwise Thai text (3 bytes per character) wraps far too
+        // early. Skip UTF-8 continuation bytes and Thai combining marks (U+0E31, U+0E34-U+0E3A, U+0E47-U+0E4E),
+        // which take no horizontal space.
+        if ((c & 0xC0) == 0x80) {
+            continue;
+        }
+        if (c == 0xE0 && currentCharacter + 2 < tipLength) {
+            const unsigned char b1 = static_cast<unsigned char>(newText[currentCharacter + 1]);
+            const unsigned char b2 = static_cast<unsigned char>(newText[currentCharacter + 2]);
+            if (b1 == 0xB8 || b1 == 0xB9) {
+                const unsigned int cp = 0x0E00 | ((b1 & 0x01) << 6) | (b2 & 0x3F);
+                if (cp == 0x0E31 || (cp >= 0x0E34 && cp <= 0x0E3A) || (cp >= 0x0E47 && cp <= 0x0E4E)) {
+                    currentCharacter += 2;
+                    continue;
+                }
+            }
+        }
+        if (c == '\n') {
             currentLineLength = 0;
             lastSpace = -1;
             continue;
-        } else if (newText[currentCharacter] == ' ') {
+        } else if (c == ' ') {
             lastSpace = currentCharacter;
+            lengthAtLastSpace = currentLineLength;
         }
 
         if ((currentLineLength >= charactersPerLine) && (lastSpace >= 0)) {
             newText[lastSpace] = '\n';
-            currentLineLength = currentCharacter - lastSpace - 1;
+            currentLineLength = currentLineLength - lengthAtLastSpace - 1;
             lastSpace = -1;
         }
         currentLineLength++;

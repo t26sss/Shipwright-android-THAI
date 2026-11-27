@@ -6,6 +6,7 @@
 #include <ship/Context.h>
 
 #include "Menu.h"
+#include "ThaiText.h"
 #include "BackendTypes.h"
 #include "UIWidgets.hpp"
 #include "soh/Enhancements/speedrun/Speedrun.h"
@@ -245,7 +246,7 @@ uint32_t Menu::DrawSearchResults(std::string& menuSearchText) {
                             MenuDrawItem(info, menuThemeIndex);
                             ImGui::PushStyleColor(ImGuiCol_Text, UIWidgets::ColorValues.at(UIWidgets::Colors::Gray));
                             std::string origin =
-                                spdlog::fmt_lib::format("  ({} -> {}, Col {})", menuEntry.label, sidebarLabel, i + 1);
+                                spdlog::fmt_lib::format("  ({} -> {}, Col {})", menuEntry.label, SohGui::T(sidebarLabel.c_str()), i + 1);
                             ImGui::Text("%s", origin.c_str());
                             ImGui::PopStyleColor();
                             searchCount++;
@@ -285,7 +286,7 @@ uint32_t Menu::DrawSearchResults(std::string& menuSearchText) {
 }
 
 void Menu::AddMenuEntry(std::string entryName, const char* entryCvar) {
-    menuEntries.emplace(entryName, MainMenuEntry{ entryName, entryCvar });
+    menuEntries.emplace(entryName, MainMenuEntry{ SohGui::T(entryName.c_str()), entryCvar });
     menuOrder.push_back(entryName);
 }
 
@@ -681,7 +682,7 @@ void Menu::DrawElement() {
         headerWidth += 200.0f;
     }
     for (auto& label : menuOrder) {
-        ImVec2 size = ImGui::CalcTextSize(label.c_str());
+        ImVec2 size = ImGui::CalcTextSize(menuEntries.at(label).label.c_str());
         headerSizes.push_back(size);
         headerWidth += size.x + style.FramePadding.x * 2 + style.ItemSpacing.x;
     }
@@ -863,7 +864,7 @@ void Menu::DrawElement() {
         if (sectionIndex != sidebarLabel) {
             ImGui::PushStyleColor(ImGuiCol_Button, { 0, 0, 0, 0 });
         }
-        if (ModernMenuSidebarEntry(sidebarLabel)) {
+        if (ModernMenuSidebarEntry(SohGui::T(sidebarLabel.c_str()))) {
             if (headerSearch) {
                 menuSearch.Clear();
             }

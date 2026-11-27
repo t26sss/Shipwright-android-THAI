@@ -2,6 +2,7 @@
 #include <ship/Context.h>
 
 #include "SohMenu.h"
+#include "ThaiText.h"
 
 extern "C" {
 extern PlayState* gPlayState;
@@ -109,58 +110,58 @@ void SohMenu::InitElement() {
           { [](disabledInfo& info) -> bool {
                return !Ship::Context::GetRawInstance()->GetWindow()->CanDisableVerticalSync();
            },
-            "Disabling VSync not supported" } },
+            T("Disabling VSync not supported") } },
         { DISABLE_FOR_NO_WINDOWED_FULLSCREEN,
           { [](disabledInfo& info) -> bool {
                return !Ship::Context::GetRawInstance()->GetWindow()->SupportsWindowedFullscreen();
            },
-            "Windowed Fullscreen not supported" } },
+            T("Windowed Fullscreen not supported") } },
         { DISABLE_FOR_NO_MULTI_VIEWPORT,
           { [](disabledInfo& info) -> bool {
                return !Ship::Context::GetRawInstance()->GetWindow()->GetGui()->SupportsViewports();
            },
-            "Multi-viewports not supported" } },
+            T("Multi-viewports not supported") } },
         { DISABLE_FOR_NOT_DIRECTX,
           { [](disabledInfo& info) -> bool {
                return Ship::Context::GetRawInstance()->GetWindow()->GetWindowBackend() !=
                       Fast::WindowBackend::FAST3D_DXGI_DX11;
            },
-            "Available Only on DirectX" } },
+            T("Available Only on DirectX") } },
         { DISABLE_FOR_DIRECTX,
           { [](disabledInfo& info) -> bool {
                return Ship::Context::GetRawInstance()->GetWindow()->GetWindowBackend() ==
                       Fast::WindowBackend::FAST3D_DXGI_DX11;
            },
-            "Not Available on DirectX" } },
+            T("Not Available on DirectX") } },
         { DISABLE_FOR_MATCH_REFRESH_RATE_ON,
           { [](disabledInfo& info) -> bool { return CVarGetInteger(CVAR_SETTING("MatchRefreshRate"), 0); },
-            "Match Refresh Rate is Enabled" } },
+            T("Match Refresh Rate is Enabled") } },
         { DISABLE_FOR_ADVANCED_RESOLUTION_ON,
           { [](disabledInfo& info) -> bool { return CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".Enabled", 0); },
-            "Advanced Resolution Enabled" } },
+            T("Advanced Resolution Enabled") } },
         { DISABLE_FOR_VERTICAL_RES_TOGGLE_ON,
           { [](disabledInfo& info) -> bool {
                return CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".VerticalResolutionToggle", 0);
            },
-            "Vertical Resolution Toggle Enabled" } },
+            T("Vertical Resolution Toggle Enabled") } },
         { DISABLE_FOR_LOW_RES_MODE_ON,
-          { [](disabledInfo& info) -> bool { return CVarGetInteger(CVAR_LOW_RES_MODE, 0); }, "N64 Mode Enabled" } },
+          { [](disabledInfo& info) -> bool { return CVarGetInteger(CVAR_LOW_RES_MODE, 0); }, T("N64 Mode Enabled") } },
         { DISABLE_FOR_NULL_PLAY_STATE,
-          { [](disabledInfo& info) -> bool { return gPlayState == NULL; }, "Save Not Loaded" } },
+          { [](disabledInfo& info) -> bool { return gPlayState == NULL; }, T("Save Not Loaded") } },
         { DISABLE_FOR_DEBUG_MODE_OFF,
           { [](disabledInfo& info) -> bool { return !CVarGetInteger(CVAR_DEVELOPER_TOOLS("DebugEnabled"), 0); },
-            "Debug Mode is Disabled" } },
+            T("Debug Mode is Disabled") } },
         { DISABLE_FOR_FRAME_ADVANCE_OFF,
           { [](disabledInfo& info) -> bool { return !(gPlayState != nullptr && gPlayState->frameAdvCtx.enabled); },
-            "Frame Advance is Disabled" } },
+            T("Frame Advance is Disabled") } },
         { DISABLE_FOR_ADVANCED_RESOLUTION_OFF,
           { [](disabledInfo& info) -> bool { return !CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".Enabled", 0); },
-            "Advanced Resolution is Disabled" } },
+            T("Advanced Resolution is Disabled") } },
         { DISABLE_FOR_VERTICAL_RESOLUTION_OFF,
           { [](disabledInfo& info) -> bool {
                return !CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".VerticalResolutionToggle", 0);
            },
-            "Vertical Resolution Toggle is Off" } },
+            T("Vertical Resolution Toggle is Off") } },
     };
 }
 
