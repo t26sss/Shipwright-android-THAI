@@ -27,7 +27,7 @@ extern PlayState* gPlayState;
     CVarSetInteger(cvar, val);        \
     ShipInit::Init(cvar);
 
-static std::string comboboxTooltip = T("");
+static std::string comboboxTooltip = "";
 bool isBetaQuestEnabled = false;
 
 extern "C" {
