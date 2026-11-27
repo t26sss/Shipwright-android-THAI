@@ -14,6 +14,7 @@
 
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <ship/Context.h>
+#include <ship/window/Window.h>
 #include <ship/window/gui/Gui.h>
 
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
@@ -29,12 +30,12 @@ extern "C" {
 #include "src/overlays/actors/ovl_Boss_Goma/z_boss_goma.h"
 extern PlayState* gPlayState;
 // Gohma action functions (non-static in z_boss_goma.c)
-extern void BossGoma_FloorMain(BossGoma* this, PlayState* play);
-extern void BossGoma_WallClimb(BossGoma* this, PlayState* play);
-extern void BossGoma_CeilingMoveToCenter(BossGoma* this, PlayState* play);
-extern void BossGoma_CeilingIdle(BossGoma* this, PlayState* play);
-extern void BossGoma_CeilingPrepareSpawnGohmas(BossGoma* this, PlayState* play);
-extern void BossGoma_CeilingSpawnGohmas(BossGoma* this, PlayState* play);
+extern void BossGoma_FloorMain(BossGoma*, PlayState*);
+extern void BossGoma_WallClimb(BossGoma*, PlayState*);
+extern void BossGoma_CeilingMoveToCenter(BossGoma*, PlayState*);
+extern void BossGoma_CeilingIdle(BossGoma*, PlayState*);
+extern void BossGoma_CeilingPrepareSpawnGohmas(BossGoma*, PlayState*);
+extern void BossGoma_CeilingSpawnGohmas(BossGoma*, PlayState*);
 }
 
 namespace Achievements {
