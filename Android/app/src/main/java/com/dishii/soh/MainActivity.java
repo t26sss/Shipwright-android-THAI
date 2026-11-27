@@ -887,6 +887,8 @@ public class MainActivity extends SDLActivity{
     public native void nativeGamepadBackPressed();
     // Injects a directional menu nav key: dir 0=up 1=down 2=left 3=right.
     public native void nativeMenuNavKey(int dir, boolean pressed);
+    // Touch "Jump" button -> Manual Jump (see ManualJump.cpp). Works without any key binding.
+    public native void nativeTouchJump(boolean down);
 
     public void SetFirstPersonAimingActive(boolean active) {
         mIsAiming = active;
@@ -918,6 +920,7 @@ public class MainActivity extends SDLActivity{
     private Button buttonA, buttonB, buttonX, buttonY;
     private Button buttonDpadUp, buttonDpadDown, buttonDpadLeft, buttonDpadRight;
     private Button buttonLB, buttonRB, buttonZL, buttonZR, buttonStart, buttonBack;
+    private Button buttonJump, buttonRoll;
     private Button buttonToggle;
     private FrameLayout leftJoystick;
     private ImageView leftJoystickKnob;
@@ -966,6 +969,8 @@ public class MainActivity extends SDLActivity{
             case "zr": return "ปุ่ม ZR";
             case "start": return "ปุ่ม Start";
             case "back": return "ปุ่ม Back";
+            case "jump": return "ปุ่มกระโดด (Jump)";
+            case "roll": return "ปุ่มกลิ้ง (Roll)";
             default: return name;
         }
     }
@@ -1009,6 +1014,9 @@ public class MainActivity extends SDLActivity{
         buttonStart = overlayView.findViewById(R.id.buttonStart);
         buttonBack = overlayView.findViewById(R.id.buttonBack);
 
+        buttonJump = overlayView.findViewById(R.id.buttonJump);
+        buttonRoll = overlayView.findViewById(R.id.buttonRoll);
+
         buttonToggle = overlayView.findViewById(R.id.buttonToggle);
 
         // Initialize joysticks and joystick knobs from the inflated layout
@@ -1049,6 +1057,9 @@ public class MainActivity extends SDLActivity{
     }
 
     private void attachGameTouchListeners() {
+        addJumpTouchListener(buttonJump);
+        // Roll is the game's own A action; this is a second A button you can place anywhere.
+        addTouchListener(buttonRoll, ControllerButtons.BUTTON_A);
         setupCButtons(buttonDpadUp, ControllerButtons.BUTTON_DPAD_UP);
         setupCButtons(buttonDpadDown, ControllerButtons.BUTTON_DPAD_DOWN);
         setupCButtons(buttonDpadLeft, ControllerButtons.BUTTON_DPAD_LEFT);
@@ -1226,6 +1237,8 @@ public class MainActivity extends SDLActivity{
         moveGroups.add(new MoveGroup("zr", new View[]{buttonZR}, new View[]{buttonZR}));
         moveGroups.add(new MoveGroup("start", new View[]{buttonStart}, new View[]{buttonStart}));
         moveGroups.add(new MoveGroup("back", new View[]{buttonBack}, new View[]{buttonBack}));
+        moveGroups.add(new MoveGroup("jump", new View[]{buttonJump}, new View[]{buttonJump}));
+        moveGroups.add(new MoveGroup("roll", new View[]{buttonRoll}, new View[]{buttonRoll}));
     }
 
     private void applySavedButtonPositions() {
@@ -1261,6 +1274,8 @@ public class MainActivity extends SDLActivity{
     private void enterTouchEditMode() {
         if (overlayView == null) return;
         touchEditMode = true;
+        // If the buttons were hidden with the eye button, show them or there is nothing to drag.
+        preferences.edit().putBoolean(PREF_TOUCH_CONTROLS_HIDDEN, false).apply();
         resetLeftStick();
         applyTouchControlsVisibility();
 
@@ -1337,7 +1352,7 @@ public class MainActivity extends SDLActivity{
             }
         });
 
-        Toast.makeText(this, "โหมดแก้ไข: ลากปุ่มเพื่อย้าย • กดปุ่มสลับค้างเพื่อออก",
+        Toast.makeText(this, "โหมดแก้ไข: ลากปุ่มเพื่อย้าย • แตะปุ่มรูปตาเพื่อบันทึกและออก",
                 Toast.LENGTH_LONG).show();
     }
 
@@ -1523,11 +1538,34 @@ public class MainActivity extends SDLActivity{
         });
         button.setOnClickListener(v -> {
             if (touchEditMode) {
+                // A single tap on the eye button saves and leaves the layout editor.
+                exitTouchEditMode();
+                Toast.makeText(this, "บันทึกตำแหน่งปุ่มแล้ว", Toast.LENGTH_SHORT).show();
                 return;
             }
             boolean currentlyHidden = uiGroup.getVisibility() != View.VISIBLE;
             preferences.edit().putBoolean(PREF_TOUCH_CONTROLS_HIDDEN, !currentlyHidden).apply();
             applyTouchControlsVisibility();
+        });
+    }
+
+    private void addJumpTouchListener(Button button) {
+        if (touchEditMode || button == null) {
+            return;
+        }
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    nativeTouchJump(true);
+                    setTouchButtonPressed(button, true);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    nativeTouchJump(false);
+                    setTouchButtonPressed(button, false);
+                    return true;
+            }
+            return false;
         });
     }
 
