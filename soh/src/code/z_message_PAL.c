@@ -1281,7 +1281,7 @@ void Message_DrawTextJPN(PlayState* play, Gfx** gfxP) {
                         // THAI: for high bytes 0x88-0x94 the advance in pixels is (hi - 0x84) = 4..16.
                         // Any other code advances a full 16 pixels.
                         if ((u8)((character >> 8) - 0x88) < 13) {
-                            msgCtx->textPosX += (character >> 8) - 0x84;
+                            msgCtx->textPosX += (character >> 8) - 0x84 - 1; // THAI: 1px tighter
                         } else {
                             msgCtx->textPosX += 16;
                         }
@@ -1687,7 +1687,7 @@ s16 Thai_NameCharAdvance(u8 nameChar, s16* isMark) {
     }
 
     if (asc >= ' ') {
-        adv = (s32)(sFontWidths[asc - ' '] + 3.0f);
+        adv = (s32)(sFontWidths[asc - ' '] + 2.0f); // THAI: 1px tighter
         if (adv > 16) {
             adv = 16;
         }
