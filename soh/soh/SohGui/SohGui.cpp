@@ -35,6 +35,7 @@
 #include "soh/Enhancements/debugger/SohStatsWindow.h"
 #include "soh/Enhancements/debugger/valueViewer.h"
 #include "soh/Enhancements/gameplaystatswindow.h"
+#include "soh/Enhancements/Achievements/Achievements.h"
 #include "soh/Enhancements/randomizer/randomizer_check_tracker.h"
 #include "soh/Enhancements/randomizer/randomizer_entrance_tracker.h"
 #include "soh/Enhancements/randomizer/randomizer_hint_tracker.h"
@@ -96,6 +97,7 @@ std::shared_ptr<DLViewerWindow> mDLViewerWindow;
 std::shared_ptr<ValueViewerWindow> mValueViewerWindow;
 std::shared_ptr<MessageViewer> mMessageViewerWindow;
 std::shared_ptr<GameplayStatsWindow> mGameplayStatsWindow;
+std::shared_ptr<Achievements::Window> mAchievementsWindow;
 std::shared_ptr<CheckTracker::CheckTrackerSettingsWindow> mCheckTrackerSettingsWindow;
 std::shared_ptr<CheckTracker::CheckTrackerWindow> mCheckTrackerWindow;
 std::shared_ptr<EntranceTracker::EntranceTrackerSettingsWindow> mEntranceTrackerSettingsWindow;
@@ -139,6 +141,7 @@ std::vector<std::shared_ptr<Ship::GuiWindow>> GetAllGuiWindows() {
         mValueViewerWindow,
         mMessageViewerWindow,
         mGameplayStatsWindow,
+        mAchievementsWindow,
         mCheckTrackerWindow,
         mCheckTrackerSettingsWindow,
         mEntranceTrackerWindow,
@@ -229,6 +232,9 @@ void SetupGuiElements() {
     mGameplayStatsWindow =
         std::make_shared<GameplayStatsWindow>(CVAR_WINDOW("GameplayStats"), "Gameplay Stats", ImVec2(480, 550));
     gui->AddGuiWindow(mGameplayStatsWindow);
+    mAchievementsWindow =
+        std::make_shared<Achievements::Window>(CVAR_WINDOW("Achievements"), "Achievements", ImVec2(420, 520));
+    gui->AddGuiWindow(mAchievementsWindow);
     mCheckTrackerWindow = std::make_shared<CheckTracker::CheckTrackerWindow>(CVAR_WINDOW("CheckTracker"),
                                                                              "Check Tracker", ImVec2(400, 540));
     gui->AddGuiWindow(mCheckTrackerWindow);
@@ -287,6 +293,7 @@ void Destroy() {
     mHintTrackerWindow = nullptr;
     mHintTrackerSettingsWindow = nullptr;
     mGameplayStatsWindow = nullptr;
+    mAchievementsWindow = nullptr;
     mDLViewerWindow = nullptr;
     mValueViewerWindow = nullptr;
     mMessageViewerWindow = nullptr;

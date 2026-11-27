@@ -2160,6 +2160,16 @@ void SohMenu::AddMenuEnhancements() {
         .HideInSearch(true)
         .Options(WindowButtonOptions().Tooltip(T("Enables the separate Gameplay Stats Window.")));
 
+    // Achievements
+    path.sidebarName = "Achievements";
+    AddSidebarEntry("Enhancements", path.sidebarName, 1);
+    AddWidget(path, "Popout Achievements Window", WIDGET_WINDOW_BUTTON)
+        .CVar(CVAR_WINDOW("Achievements"))
+        .RaceDisable(false)
+        .WindowName("Achievements")
+        .HideInSearch(true)
+        .Options(WindowButtonOptions().Tooltip("Shows the list of achievements and your progress."));
+
     // Time Splits
     path.sidebarName = "Time Splits";
     AddSidebarEntry("Enhancements", path.sidebarName, 1);
