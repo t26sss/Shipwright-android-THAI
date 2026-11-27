@@ -80,7 +80,7 @@ public class MainActivity extends SDLActivity{
     private static final int TOUCH_FACE_BUTTON_LAYOUT_GAMECUBE = 2;
     private static final String SUPPORT_FILES_VERSION_MARKER = ".android_support_files_version";
     // Bump only for support archive/layout changes. Extractor YAML is content-versioned separately.
-    private static final String SUPPORT_FILES_VERSION = "soh-9.3.1-torch-support-2";
+    private static final String SUPPORT_FILES_VERSION = "soh-9.3.1-torch-support-2-thai2";
     private AlertDialog dataRootMigrationDialog;
     private AlertDialog setupProgressDialog;
 
