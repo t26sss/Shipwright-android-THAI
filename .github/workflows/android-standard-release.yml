@@ -15,6 +15,12 @@ jobs:
     if: github.repository == 't26sss/Shipwright-android-THAI'
     runs-on: ubuntu-24.04
     timeout-minutes: 100
+    env:
+      CCACHE_DIR: /home/runner/.ccache
+      CCACHE_MAXSIZE: 2G
+      CCACHE_COMPILERCHECK: content
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@v4
         with:
@@ -30,7 +36,14 @@ jobs:
       - name: Install host dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build libzip-dev libpng-dev zlib1g-dev
+          sudo apt-get install -y ninja-build libzip-dev libpng-dev zlib1g-dev ccache
+          ccache -z
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: /home/runner/.ccache
+          key: ccache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: ccache-${{ runner.os }}-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -94,3 +107,12 @@ jobs:
       - name: Remove temporary signing key
         if: always()
         run: rm -f "$RUNNER_TEMP/standard-release.jks"
+      - name: ccache stats
+        if: always()
+        run: ccache -s
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: /home/runner/.ccache
+          key: ccache-${{ runner.os }}-${{ github.run_id }}
