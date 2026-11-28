@@ -10,6 +10,7 @@
 #include "soh/cvar_prefixes.h"
 #include "soh/Enhancements/randomizer/randomizer.h"
 #include "soh/Enhancements/randomizer/settings.h"
+#include "ThaiText.h"
 
 namespace SohGui {
 
@@ -73,7 +74,7 @@ static void StartingItemTiered(RandomizerSettingKey rsk, const std::vector<uint3
             ImGui::CloseCurrentPopup();
         }
         PopStyleButton();
-        Tooltip("None");
+        Tooltip(T("None"));
         for (size_t i = 0; i < itemIds.size(); i++) {
             ImGui::SameLine();
             const ItemMapEntry& entry = itemMapping[itemIds[i]];
@@ -187,7 +188,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemTiered(RSK_STARTING_STRENGTH, { ITEM_BRACELET, ITEM_GAUNTLETS_SILVER, ITEM_GAUNTLETS_GOLD });
     ImGui::EndDisabled();
     if (grabShuffled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Disabled because Shuffle Grab is on.");
+        ImGui::SetTooltip("%s", T("Disabled because Shuffle Grab is on."));
     }
     ImGui::SameLine();
     bool swimShuffled =
@@ -196,7 +197,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemTiered(RSK_STARTING_SCALE, { ITEM_SCALE_SILVER, ITEM_SCALE_GOLDEN });
     ImGui::EndDisabled();
     if (swimShuffled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Disabled because Shuffle Swim is on.");
+        ImGui::SetTooltip("%s", T("Disabled because Shuffle Swim is on."));
     }
     ImGui::SameLine();
     StartingItemTiered(RSK_STARTING_MAGIC_METER, { ITEM_MAGIC_SMALL, ITEM_MAGIC_LARGE });
@@ -208,7 +209,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemTiered(RSK_STARTING_WALLET, { ITEM_WALLET_ADULT, ITEM_WALLET_GIANT });
     ImGui::EndDisabled();
     if (childsWalletShuffled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Disabled because Shuffle Child's Wallet is on.");
+        ImGui::SetTooltip("%s", T("Disabled because Shuffle Child's Wallet is on."));
     }
 
     ImGui::SeparatorText("Items");
@@ -219,7 +220,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemToggle(RSK_STARTING_STICKS, ITEM_STICK, stickBagShuffled);
     ImGui::EndDisabled();
     if (stickBagShuffled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Disabled because the Deku Stick Bag is being shuffled.");
+        ImGui::SetTooltip("%s", T("Disabled because the Deku Stick Bag is being shuffled."));
     }
     ImGui::SameLine();
     bool nutBagShuffled =
@@ -229,7 +230,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemToggle(RSK_STARTING_NUTS, ITEM_NUT, nutBagShuffled);
     ImGui::EndDisabled();
     if (nutBagShuffled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Disabled because the Deku Nut Bag is being shuffled.");
+        ImGui::SetTooltip("%s", T("Disabled because the Deku Nut Bag is being shuffled."));
     }
     ImGui::SameLine();
     StartingItemTiered(RSK_STARTING_BOMB_BAG, { ITEM_BOMB_BAG_20, ITEM_BOMB_BAG_30, ITEM_BOMB_BAG_40 });
@@ -258,7 +259,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
             StartingItemToggle(RSK_STARTING_BOMBCHU_BAG, ITEM_BOMBCHU, true);
             ImGui::EndDisabled();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                ImGui::SetTooltip("Enable the Bombchu Bag setting to start with bombchus.");
+                ImGui::SetTooltip("%s", T("Enable the Bombchu Bag setting to start with bombchus."));
             }
         }
     }
@@ -298,7 +299,7 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemToggle(RSK_STARTING_WEIRD_EGG, ITEM_WEIRD_EGG, !weirdEggShuffled);
     ImGui::EndDisabled();
     if (!weirdEggShuffled && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::SetTooltip("Enable Shuffle Weird Egg to start with the Weird Egg.");
+        ImGui::SetTooltip("%s", T("Enable Shuffle Weird Egg to start with the Weird Egg."));
     }
     ImGui::SameLine();
     bool zeldasLetterShuffled =
@@ -307,13 +308,13 @@ void DrawStartingItemsMenu(WidgetInfo& info) {
     StartingItemToggle(RSK_STARTING_ZELDAS_LETTER, ITEM_LETTER_ZELDA);
     if (ImGui::IsItemHovered()) {
         if (zeldasLetterShuffled) {
-            ImGui::SetTooltip("Start with Zelda's Letter\n\n"
-                              "The Kakariko gate starts open.");
+            ImGui::SetTooltip("%s", T("Start with Zelda's Letter\n\n"
+                              "The Kakariko gate starts open."));
         } else {
-            ImGui::SetTooltip("Start with Zelda's Letter\n\n"
+            ImGui::SetTooltip("%s", T("Start with Zelda's Letter\n\n"
                               "The Kakariko gate starts open.\n"
                               "While the letter isn't shuffled this also skips child Zelda:\n"
-                              "you get the item Impa would give and skip everything up to meeting Zelda.");
+                              "you get the item Impa would give and skip everything up to meeting Zelda."));
         }
     }
     StartingItemToggle(RSK_STARTING_KEATON_MASK, ITEM_MASK_KEATON);

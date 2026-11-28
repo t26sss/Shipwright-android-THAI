@@ -15,6 +15,7 @@
 
 extern "C" {
 #include "variables.h"
+#include "ThaiText.h"
 }
 
 namespace SohGui {
@@ -23,9 +24,9 @@ extern std::shared_ptr<SohMenu> mSohMenu;
 using namespace UIWidgets;
 
 static const std::map<int32_t, const char*> skipGetItemAnimationOptions = {
-    { SGIA_DISABLED, "Disabled" },
-    { SGIA_JUNK, "Junk Items" },
-    { SGIA_ALL, "All Items" },
+    { SGIA_DISABLED, T("Disabled") },
+    { SGIA_JUNK, T("Junk Items") },
+    { SGIA_ALL, T("All Items") },
 };
 
 static bool locationsDirty = true;
@@ -664,20 +665,20 @@ void SohMenu::AddMenuRandomizer() {
     WidgetPath path = { "Randomizer", "General", SECTION_COLUMN_1 };
     AddSidebarEntry("Randomizer", path.sidebarName, 2);
     AddWidget(path,
-              "Be sure to explore the Presets and Enhancements Menus for various Speedups and Quality of Life changes!",
+              T("Be sure to explore the Presets and Enhancements Menus for various Speedups and Quality of Life changes!"),
               WIDGET_TEXT)
         .Options(TextOptions().Color(UIWidgets::Colors::Gray));
-    AddWidget(path, "Seed Entry", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Manual seed entry", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, T("Seed Entry"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Manual seed entry"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_SETTING("ManualSeedEntry"))
         .Options(CheckboxOptions().DefaultValue(true));
-    AddWidget(path, "Seed", WIDGET_CUSTOM).CustomFunction([](WidgetInfo& info) {
+    AddWidget(path, T("Seed"), WIDGET_CUSTOM).CustomFunction([](WidgetInfo& info) {
         if (CVarGetInteger(CVAR_RANDOMIZER_SETTING("ManualSeedEntry"), 0)) {
             UIWidgets::PushStyleInput(THEME_COLOR);
             ImGui::InputText("##RandomizerSeed", seedString, MAX_SEED_STRING_SIZE,
                              ImGuiInputTextFlags_CallbackCharFilter, UIWidgets::TextFilters::FilterAlphaNum);
-            UIWidgets::Tooltip("Characters from a-z, A-Z, and 0-9 are supported.\n"
-                               "Character limit is 1023, after which the seed will be truncated.");
+            UIWidgets::Tooltip(T("Characters from a-z, A-Z, and 0-9 are supported.\n"
+                               "Character limit is 1023, after which the seed will be truncated."));
             ImGui::SameLine();
             if (UIWidgets::Button(
                     ICON_FA_RANDOM,
@@ -685,7 +686,7 @@ void SohMenu::AddMenuRandomizer() {
                         .Size(UIWidgets::Sizes::Inline)
                         .Color(THEME_COLOR)
                         .Padding(ImVec2(10.f, 6.f))
-                        .Tooltip("Creates a new random seed value to be used when generating a randomizer"))) {
+                        .Tooltip(T("Creates a new random seed value to be used when generating a randomizer")))) {
                 for (size_t i = 0; i < 10; i++) {
                     seedString[i] = '0' + ShipUtils::Random(0, 10);
                 }
@@ -705,7 +706,7 @@ void SohMenu::AddMenuRandomizer() {
             UIWidgets::PopStyleInput();
         }
     });
-    AddWidget(path, "Generate Randomizer", WIDGET_BUTTON)
+    AddWidget(path, T("Generate Randomizer"), WIDGET_BUTTON)
         .Callback([](WidgetInfo& info) {
             GenerateRandomizer(CVarGetInteger(CVAR_RANDOMIZER_SETTING("ManualSeedEntry"), 0) ? seedString : "");
         })
@@ -714,87 +715,87 @@ void SohMenu::AddMenuRandomizer() {
         })
         .Options(ButtonOptions()
                      .Size(ImVec2(250.f, 0.f))
-                     .DisabledTooltip("Must be on File Select to generate a randomizer seed."));
-    AddWidget(path, "Randomize All Settings", WIDGET_BUTTON)
+                     .DisabledTooltip(T("Must be on File Select to generate a randomizer seed.")));
+    AddWidget(path, T("Randomize All Settings"), WIDGET_BUTTON)
         .Callback([](WidgetInfo& info) { Rando::Settings::GetInstance()->RandomizeAllSettings(); })
         .PreFunc([](WidgetInfo& info) {
             info.options->disabled = IsRandoGenerating() || CVarGetInteger(CVAR_GENERAL("OnFileSelectNameEntry"), 0);
         })
         .Options(ButtonOptions()
                      .Size(ImVec2(250.f, 0.f))
-                     .Tooltip("Randomizes all randomizer settings to random valid values (excludes tricks)."))
+                     .Tooltip(T("Randomizes all randomizer settings to random valid values (excludes tricks).")))
         .SameLine(true);
-    AddWidget(path, "Spoiler File", WIDGET_CUSTOM).CustomFunction([](WidgetInfo& info) {
+    AddWidget(path, T("Spoiler File"), WIDGET_CUSTOM).CustomFunction([](WidgetInfo& info) {
         if (!CVarGetInteger(CVAR_RANDOMIZER_SETTING("DontGenerateSpoiler"), 0)) {
             ImGui::Text("Spoiler File: %s", CVarGetString(CVAR_GENERAL("SpoilerLog"), ""));
         }
     });
 
     // Enhancements
-    AddWidget(path, "Enhancements", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "These enhancements are only useful in the Randomizer mode but do not affect the randomizer logic.",
+    AddWidget(path, T("Enhancements"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("These enhancements are only useful in the Randomizer mode but do not affect the randomizer logic."),
               WIDGET_TEXT)
         .Options(TextOptions().Color(UIWidgets::Colors::Gray));
-    AddWidget(path, "Rando-Relevant Navi Hints", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, T("Rando-Relevant Navi Hints"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("RandoRelevantNavi"))
         .Options(CheckboxOptions()
-                     .Tooltip("Replace Navi's overworld quest hints with rando-related gameplay hints.")
+                     .Tooltip(T("Replace Navi's overworld quest hints with rando-related gameplay hints."))
                      .DefaultValue(true));
-    AddWidget(path, "Random Rupee Names", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, T("Random Rupee Names"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("RandomizeRupeeNames"))
         .RaceDisable(false)
         .Options(CheckboxOptions()
-                     .Tooltip("When obtaining Rupees, randomize what the Rupee is called in the textbox.")
+                     .Tooltip(T("When obtaining Rupees, randomize what the Rupee is called in the textbox."))
                      .DefaultValue(true));
-    AddWidget(path, "Map & Compass Colors Match Dungeon", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, T("Map & Compass Colors Match Dungeon"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("ColoredMapsAndCompasses"))
         .Options(
             CheckboxOptions()
-                .Tooltip("Matches the color of maps & compasses to the dungeon they belong to. "
+                .Tooltip(T("Matches the color of maps & compasses to the dungeon they belong to. "
                          "This helps identify maps & compasses from afar and adds a little bit of flair.\n\nThis only "
                          "applies to seeds with maps & compasses shuffled to \"Any Dungeon\", \"Overworld\", or "
-                         "\"Anywhere\".")
+                         "\"Anywhere\"."))
                 .DefaultValue(true));
-    AddWidget(path, "Jabber Nut Colors Match Kind", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, T("Jabber Nut Colors Match Kind"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("GenericJabberNutModel"))
         .RaceDisable(false)
         .Options(CheckboxOptions()
-                     .Tooltip("With Shuffle Speak, the jabber nut model & color will be generic.")
+                     .Tooltip(T("With Shuffle Speak, the jabber nut model & color will be generic."))
                      .DefaultValue(true));
-    AddWidget(path, "Quest Item Fanfares", WIDGET_CVAR_CHECKBOX)
+    AddWidget(path, T("Quest Item Fanfares"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("QuestItemFanfares"))
         .RaceDisable(false)
         .Options(CheckboxOptions().Tooltip(
-            "Play unique fanfares when obtaining quest items (medallions/stones/songs). Note that these "
-            "fanfares can be longer than usual."));
-    AddWidget(path, "Mysterious Shuffled Items", WIDGET_CVAR_CHECKBOX)
+            T("Play unique fanfares when obtaining quest items (medallions/stones/songs). Note that these "
+            "fanfares can be longer than usual.")));
+    AddWidget(path, T("Mysterious Shuffled Items"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("MysteriousShuffle"))
         .Options(CheckboxOptions().Tooltip(
-            "Displays a \"Mystery Item\" model in place of any freestanding/GS/shop items that were shuffled, "
+            T("Displays a \"Mystery Item\" model in place of any freestanding/GS/shop items that were shuffled, "
             "and replaces item names for them and scrubs and merchants, regardless of hint settings, "
-            "so you never know what you're getting."));
-    AddWidget(path, "Simpler Boss Soul Models", WIDGET_CVAR_CHECKBOX)
+            "so you never know what you're getting.")));
+    AddWidget(path, T("Simpler Boss Soul Models"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("SimplerBossSoulModels"))
         .RaceDisable(false)
         .Options(CheckboxOptions().Tooltip(
-            "When shuffling boss souls, they'll appear as a simpler model instead of showing the bosses' models. "
-            "This might make boss souls more distinguishable from a distance, and can help with performance."));
-    AddWidget(path, "Skip Get Item Animations", WIDGET_CVAR_COMBOBOX)
+            T("When shuffling boss souls, they'll appear as a simpler model instead of showing the bosses' models. "
+            "This might make boss souls more distinguishable from a distance, and can help with performance.")));
+    AddWidget(path, T("Skip Get Item Animations"), WIDGET_CVAR_COMBOBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("TimeSavers.SkipGetItemAnimation"))
         .Options(ComboboxOptions().ComboMap(skipGetItemAnimationOptions).DefaultIndex(SGIA_JUNK));
-    AddWidget(path, "Item Scale: %.2f", WIDGET_CVAR_SLIDER_FLOAT)
+    AddWidget(path, T("Item Scale: %.2f"), WIDGET_CVAR_SLIDER_FLOAT)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("TimeSavers.SkipGetItemAnimationScale"))
         .PreFunc([](WidgetInfo& info) {
             info.options->disabled =
                 !CVarGetInteger(CVAR_RANDOMIZER_ENHANCEMENT("TimeSavers.SkipGetItemAnimation"), SGIA_JUNK);
             info.options->disabledTooltip =
-                "This slider only applies when using the \"Skip Get Item Animations\" option.";
+                T("This slider only applies when using the \"Skip Get Item Animations\" option.");
         })
         .Options(FloatSliderOptions().Min(5.0f).Max(15.0f).Format("%.2f").DefaultValue(10.0f).Tooltip(
-            "The size of the item when it is picked up."));
-    AddWidget(path, "Signs Hint Entrances", WIDGET_CVAR_CHECKBOX)
+            T("The size of the item when it is picked up.")));
+    AddWidget(path, T("Signs Hint Entrances"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_RANDOMIZER_ENHANCEMENT("EntrancesOnSigns"))
-        .Options(CheckboxOptions().Tooltip("If enabled, signs near loading zones will tell you where they lead."));
+        .Options(CheckboxOptions().Tooltip(T("If enabled, signs near loading zones will tell you where they lead.")));
 
     auto randoSettings = Rando::Settings::GetInstance();
     randoSettings->CreateOptions();
@@ -804,103 +805,103 @@ void SohMenu::AddMenuRandomizer() {
     randoSettings->GetOptionGroup(RSG_MENU_SIDEBAR_HINTS_TRAPS).AddWidgets(path);
     path.sidebarName = "Starting Items";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
-    AddWidget(path, "Starting Items", WIDGET_CUSTOM).CustomFunction(DrawStartingItemsMenu);
+    AddWidget(path, T("Starting Items"), WIDGET_CUSTOM).CustomFunction(DrawStartingItemsMenu);
     path.sidebarName = "Check Locations";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
-    AddWidget(path, "Excluded Locations", WIDGET_CUSTOM).CustomFunction(DrawLocationsMenu);
+    AddWidget(path, T("Excluded Locations"), WIDGET_CUSTOM).CustomFunction(DrawLocationsMenu);
     path.sidebarName = "Tricks/Glitches";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
-    AddWidget(path, "Tricks/Glitches", WIDGET_CUSTOM).CustomFunction(DrawTricksMenu);
+    AddWidget(path, T("Tricks/Glitches"), WIDGET_CUSTOM).CustomFunction(DrawTricksMenu);
 
     // Plandomizer
     path.sidebarName = "Plandomizer";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
-    AddWidget(path, "Popout Plandomizer Window", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Popout Plandomizer Window"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("PlandomizerEditor"))
         .RaceDisable(false)
         .WindowName("Plandomizer Editor")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Enables the separate Randomizer Settings Window."));
+        .Options(WindowButtonOptions().Tooltip(T("Enables the separate Randomizer Settings Window.")));
 
     // Item Tracker
     path.sidebarName = "Item Tracker";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
 
-    AddWidget(path, "Item Tracker", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Toggle Item Tracker", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Item Tracker"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Toggle Item Tracker"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("ItemTracker"))
         .RaceDisable(false)
         .WindowName("Item Tracker")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Toggles the Item Tracker.").EmbedWindow(false));
+        .Options(WindowButtonOptions().Tooltip(T("Toggles the Item Tracker.")).EmbedWindow(false));
 
-    AddWidget(path, "Item Tracker Settings", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Popout Item Tracker Settings", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Item Tracker Settings"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Popout Item Tracker Settings"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("ItemTrackerSettings"))
         .RaceDisable(false)
         .WindowName("Item Tracker Settings")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Enables the separate Item Tracker Settings Window."));
+        .Options(WindowButtonOptions().Tooltip(T("Enables the separate Item Tracker Settings Window.")));
 
     // Entrance Tracker
     path.sidebarName = "Entrance Tracker";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
 
-    AddWidget(path, "Entrance Tracker", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Toggle Entrance Tracker", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Entrance Tracker"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Toggle Entrance Tracker"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("EntranceTracker"))
         .RaceDisable(false)
         .WindowName("Entrance Tracker")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Toggles the Entrance Tracker.").EmbedWindow(false));
+        .Options(WindowButtonOptions().Tooltip(T("Toggles the Entrance Tracker.")).EmbedWindow(false));
 
-    AddWidget(path, "Entrance Tracker Settings", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Popout Entrance Tracker Settings", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Entrance Tracker Settings"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Popout Entrance Tracker Settings"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("EntranceTrackerSettings"))
         .RaceDisable(false)
         .WindowName("Entrance Tracker Settings")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Enables the separate Entrance Tracker Settings Window."));
+        .Options(WindowButtonOptions().Tooltip(T("Enables the separate Entrance Tracker Settings Window.")));
 
     // Check Tracker
     path.sidebarName = "Check Tracker";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
 
-    AddWidget(path, "Check Tracker", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Toggle Check Tracker", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Check Tracker"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Toggle Check Tracker"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("CheckTracker"))
         .RaceDisable(false)
         .WindowName("Check Tracker")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Toggles the Check Tracker.").EmbedWindow(false));
+        .Options(WindowButtonOptions().Tooltip(T("Toggles the Check Tracker.")).EmbedWindow(false));
 
-    AddWidget(path, "Check Tracker Settings", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Popout Check Tracker Settings", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Check Tracker Settings"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Popout Check Tracker Settings"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("CheckTrackerSettings"))
         .RaceDisable(false)
         .WindowName("Check Tracker Settings")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Enables the separate Check Tracker Settings Window."));
+        .Options(WindowButtonOptions().Tooltip(T("Enables the separate Check Tracker Settings Window.")));
 
     // Hint Tracker
     path.sidebarName = "Hint Tracker";
     AddSidebarEntry("Randomizer", path.sidebarName, 1);
 
-    AddWidget(path, "Hint Tracker", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Toggle Hint Tracker", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Hint Tracker"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Toggle Hint Tracker"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("HintTracker"))
         .RaceDisable(false)
         .WindowName("Hint Tracker")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Toggles the Hint Tracker.").EmbedWindow(false));
+        .Options(WindowButtonOptions().Tooltip(T("Toggles the Hint Tracker.")).EmbedWindow(false));
 
-    AddWidget(path, "Hint Tracker Settings", WIDGET_SEPARATOR_TEXT);
-    AddWidget(path, "Popout Hint Tracker Settings", WIDGET_WINDOW_BUTTON)
+    AddWidget(path, T("Hint Tracker Settings"), WIDGET_SEPARATOR_TEXT);
+    AddWidget(path, T("Popout Hint Tracker Settings"), WIDGET_WINDOW_BUTTON)
         .CVar(CVAR_WINDOW("HintTrackerSettings"))
         .RaceDisable(false)
         .WindowName("Hint Tracker Settings")
         .HideInSearch(true)
-        .Options(WindowButtonOptions().Tooltip("Enables the separate Hint Tracker Settings Window."));
+        .Options(WindowButtonOptions().Tooltip(T("Enables the separate Hint Tracker Settings Window.")));
 }
 
 } // namespace SohGui
