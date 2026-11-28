@@ -18,7 +18,7 @@ extern "C" {
 extern PlayState* gPlayState;
 
 void Player_Action_80842180(Player* player, PlayState* play); // untargeted walking/running
-void Player_PlayVoiceSfx(Player* this, u16 sfxId);
+void Player_PlayVoiceSfx(Player* player, u16 sfxId);
 }
 
 #define CVAR_SEPARATE_ROLL CVAR_ENHANCEMENT("SeparateRollButton")
