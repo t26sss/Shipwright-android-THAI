@@ -98,6 +98,7 @@ std::shared_ptr<ValueViewerWindow> mValueViewerWindow;
 std::shared_ptr<MessageViewer> mMessageViewerWindow;
 std::shared_ptr<GameplayStatsWindow> mGameplayStatsWindow;
 std::shared_ptr<Achievements::Window> mAchievementsWindow;
+std::shared_ptr<Achievements::ToastWindow> mAchievementToastWindow;
 std::shared_ptr<CheckTracker::CheckTrackerSettingsWindow> mCheckTrackerSettingsWindow;
 std::shared_ptr<CheckTracker::CheckTrackerWindow> mCheckTrackerWindow;
 std::shared_ptr<EntranceTracker::EntranceTrackerSettingsWindow> mEntranceTrackerSettingsWindow;
@@ -142,6 +143,7 @@ std::vector<std::shared_ptr<Ship::GuiWindow>> GetAllGuiWindows() {
         mMessageViewerWindow,
         mGameplayStatsWindow,
         mAchievementsWindow,
+        mAchievementToastWindow,
         mCheckTrackerWindow,
         mCheckTrackerSettingsWindow,
         mEntranceTrackerWindow,
@@ -235,6 +237,10 @@ void SetupGuiElements() {
     mAchievementsWindow =
         std::make_shared<Achievements::Window>(CVAR_WINDOW("Achievements"), "Achievements", ImVec2(420, 520));
     gui->AddGuiWindow(mAchievementsWindow);
+    mAchievementToastWindow = std::make_shared<Achievements::ToastWindow>(CVAR_WINDOW("AchievementToast"),
+                                                                           "Achievement Toast Window");
+    gui->AddGuiWindow(mAchievementToastWindow);
+    mAchievementToastWindow->Show();
     mCheckTrackerWindow = std::make_shared<CheckTracker::CheckTrackerWindow>(CVAR_WINDOW("CheckTracker"),
                                                                              "Check Tracker", ImVec2(400, 540));
     gui->AddGuiWindow(mCheckTrackerWindow);
@@ -294,6 +300,7 @@ void Destroy() {
     mHintTrackerSettingsWindow = nullptr;
     mGameplayStatsWindow = nullptr;
     mAchievementsWindow = nullptr;
+    mAchievementToastWindow = nullptr;
     mDLViewerWindow = nullptr;
     mValueViewerWindow = nullptr;
     mMessageViewerWindow = nullptr;
