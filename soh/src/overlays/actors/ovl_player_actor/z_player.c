@@ -11821,10 +11821,14 @@ static Vec3f D_80854814 = { 0.0f, 0.0f, 200.0f };
 static f32 sWaterConveyorSpeeds[] = { 2.0f, 4.0f, 7.0f };
 static f32 sFloorConveyorSpeeds[] = { 0.5f, 1.0f, 3.0f };
 
+// Android touch: lets A trigger the C-button item chosen by tapping its icon (see TouchActions.cpp).
+void TouchActions_RemapPlayerInput(Input* input);
+
 void Player_UpdateCommon(Player* this, PlayState* play, Input* input) {
     s32 pad;
 
     sControlInput = input;
+    TouchActions_RemapPlayerInput(input); // acts on the player's private copy of the input only
 
     if (this->unk_A86 < 0) {
         this->unk_A86++;

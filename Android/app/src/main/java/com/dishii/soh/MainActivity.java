@@ -897,6 +897,9 @@ public class MainActivity extends SDLActivity{
     public native boolean nativeIsSeparateRoll();
     public native void nativeTouchSprint(boolean down);
     public native int nativeGetStamina();
+    // Tap an item icon to select it; A then uses it (see TouchActions.cpp). slot -1 = none.
+    public native void nativeSetSelectedItem(int slot);
+    public native boolean nativeIsItemSelectEnabled();
 
     public void SetFirstPersonAimingActive(boolean active) {
         mIsAiming = active;
@@ -929,6 +932,10 @@ public class MainActivity extends SDLActivity{
     private Button buttonDpadUp, buttonDpadDown, buttonDpadLeft, buttonDpadRight;
     private Button buttonLB, buttonRB, buttonZL, buttonZR, buttonStart, buttonBack;
     private Button buttonJump, buttonRoll, buttonRun;
+    // Tap targets over the HUD's C-button item icons: 0 = C-left, 1 = C-down, 2 = C-right.
+    private final Button[] itemSlots = new Button[3];
+    private int selectedItemSlot = -1;
+    private volatile boolean itemSelectActive = false;
     private final Handler staminaHandler = new Handler(Looper.getMainLooper());
     private Button buttonToggle;
     private FrameLayout leftJoystick;
@@ -981,6 +988,9 @@ public class MainActivity extends SDLActivity{
             case "jump": return "ปุ่มกระโดด (Jump)";
             case "roll": return "ปุ่มกลิ้ง (Roll)";
             case "run": return "ปุ่มวิ่ง (Run)";
+            case "itemL": return "จุดแตะไอเทม C ซ้าย";
+            case "itemD": return "จุดแตะไอเทม C ล่าง";
+            case "itemR": return "จุดแตะไอเทม C ขวา";
             default: return name;
         }
     }
@@ -1027,6 +1037,9 @@ public class MainActivity extends SDLActivity{
         buttonJump = overlayView.findViewById(R.id.buttonJump);
         buttonRoll = overlayView.findViewById(R.id.buttonRoll);
         buttonRun = overlayView.findViewById(R.id.buttonRun);
+        itemSlots[0] = overlayView.findViewById(R.id.buttonItemLeft);
+        itemSlots[1] = overlayView.findViewById(R.id.buttonItemDown);
+        itemSlots[2] = overlayView.findViewById(R.id.buttonItemRight);
 
         buttonToggle = overlayView.findViewById(R.id.buttonToggle);
 
@@ -1040,6 +1053,7 @@ public class MainActivity extends SDLActivity{
         attachGameTouchListeners();
         buildMoveGroups();
         applySavedButtonPositions();
+        positionItemSlotsWhenLaidOut();
         applyAllScalesWhenLaidOut();
 
         setupFloatingJoystick(leftScreenArea);
@@ -1072,6 +1086,7 @@ public class MainActivity extends SDLActivity{
         addJumpTouchListener(buttonJump);
         addRollTouchListener(buttonRoll);
         addSprintTouchListener(buttonRun);
+        attachItemSlotListeners();
         setupCButtons(buttonDpadUp, ControllerButtons.BUTTON_DPAD_UP);
         setupCButtons(buttonDpadDown, ControllerButtons.BUTTON_DPAD_DOWN);
         setupCButtons(buttonDpadLeft, ControllerButtons.BUTTON_DPAD_LEFT);
@@ -1252,6 +1267,9 @@ public class MainActivity extends SDLActivity{
         moveGroups.add(new MoveGroup("jump", new View[]{buttonJump}, new View[]{buttonJump}));
         moveGroups.add(new MoveGroup("roll", new View[]{buttonRoll}, new View[]{buttonRoll}));
         moveGroups.add(new MoveGroup("run", new View[]{buttonRun}, new View[]{buttonRun}));
+        moveGroups.add(new MoveGroup("itemL", new View[]{itemSlots[0]}, new View[]{itemSlots[0]}));
+        moveGroups.add(new MoveGroup("itemD", new View[]{itemSlots[1]}, new View[]{itemSlots[1]}));
+        moveGroups.add(new MoveGroup("itemR", new View[]{itemSlots[2]}, new View[]{itemSlots[2]}));
     }
 
     private void applySavedButtonPositions() {
@@ -1365,6 +1383,8 @@ public class MainActivity extends SDLActivity{
             }
         });
 
+        refreshItemSlotVisuals();
+        syncItemSlotsWithSetting();
         Toast.makeText(this, "โหมดแก้ไข: ลากปุ่มเพื่อย้าย • แตะปุ่มรูปตาเพื่อบันทึกและออก",
                 Toast.LENGTH_LONG).show();
     }
@@ -1372,6 +1392,8 @@ public class MainActivity extends SDLActivity{
     private void exitTouchEditMode() {
         touchEditMode = false;
         leftJoystick.setOnTouchListener(null);
+        refreshItemSlotVisuals();
+        syncItemSlotsWithSetting();
         attachGameTouchListeners();
         applyTouchFaceButtonLayout(preferences.getInt(
                 PREF_TOUCH_FACE_BUTTON_LAYOUT, TOUCH_FACE_BUTTON_LAYOUT_ABXY));
@@ -1644,9 +1666,101 @@ public class MainActivity extends SDLActivity{
                         }
                     }
                 }
+                syncItemSlotsWithSetting();
                 staminaHandler.postDelayed(this, 200);
             }
         });
+    }
+
+    // ---------------- Tap an item icon to select it ----------------
+
+    // Default spot of the HUD's C icons (right-anchored, scaled by screen height like the game HUD).
+    private void positionItemSlots() {
+        if (overlayView == null || overlayView.getHeight() <= 0) return;
+        float h = overlayView.getHeight();
+        // {distance of icon centre from the right edge, from the top} as a fraction of the screen height
+        float[][] spots = {{0.3333f, 0.1315f}, {0.2407f, 0.1972f}, {0.1528f, 0.1315f}};
+        for (int i = 0; i < 3; i++) {
+            Button b = itemSlots[i];
+            if (b == null) continue;
+            android.view.ViewGroup.LayoutParams raw = b.getLayoutParams();
+            if (raw instanceof androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) {
+                androidx.constraintlayout.widget.ConstraintLayout.LayoutParams lp =
+                        (androidx.constraintlayout.widget.ConstraintLayout.LayoutParams) raw;
+                int size = dpToPixels(56);
+                lp.rightMargin = Math.max(0, Math.round(spots[i][0] * h - size / 2f));
+                lp.topMargin = Math.max(0, Math.round(spots[i][1] * h - size / 2f));
+                b.setLayoutParams(lp);
+            }
+        }
+    }
+
+    private void positionItemSlotsWhenLaidOut() {
+        if (overlayView.getHeight() > 0) {
+            positionItemSlots();
+            return;
+        }
+        overlayView.getViewTreeObserver().addOnGlobalLayoutListener(
+                new ViewTreeObserver.OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        if (overlayView.getHeight() == 0) return;
+                        overlayView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        positionItemSlots();
+                    }
+                });
+    }
+
+    private void attachItemSlotListeners() {
+        if (touchEditMode) {
+            return;
+        }
+        for (int i = 0; i < itemSlots.length; i++) {
+            final int slot = i;
+            Button b = itemSlots[i];
+            if (b == null) continue;
+            b.setOnTouchListener(null);
+            b.setOnClickListener(v -> selectItemSlot(selectedItemSlot == slot ? -1 : slot));
+        }
+    }
+
+    private void selectItemSlot(int slot) {
+        selectedItemSlot = slot;
+        itemSelectActive = slot >= 0;
+        nativeSetSelectedItem(slot);
+        refreshItemSlotVisuals();
+    }
+
+    // Transparent normally, a yellow ring on the selected icon, a dashed outline while editing the layout.
+    private void refreshItemSlotVisuals() {
+        for (int i = 0; i < itemSlots.length; i++) {
+            Button b = itemSlots[i];
+            if (b == null) continue;
+            android.graphics.drawable.GradientDrawable ring = null;
+            if (touchEditMode) {
+                ring = new android.graphics.drawable.GradientDrawable();
+                ring.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                ring.setStroke(dpToPixels(2), 0xCCFFFFFF, dpToPixels(6), dpToPixels(4));
+            } else if (i == selectedItemSlot) {
+                ring = new android.graphics.drawable.GradientDrawable();
+                ring.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+                ring.setStroke(dpToPixels(3), 0xFFFFD84A);
+            }
+            b.setBackground(ring);
+        }
+    }
+
+    // Slots only exist while the "Tap item icons" option is on (or while editing the layout).
+    private void syncItemSlotsWithSetting() {
+        boolean enabled = nativeIsItemSelectEnabled();
+        if (!enabled && selectedItemSlot >= 0) {
+            selectItemSlot(-1);
+        }
+        for (Button b : itemSlots) {
+            if (b != null) {
+                b.setVisibility(enabled || touchEditMode ? View.VISIBLE : View.GONE);
+            }
+        }
     }
 
     private void addJumpTouchListener(Button button) {
@@ -1863,7 +1977,7 @@ public class MainActivity extends SDLActivity{
         setCameraTouchActive(false);
         setCameraState(0, 0.0f);
         setCameraState(1, 0.0f);
-        if (mIsAiming) {
+        if (mIsAiming && !itemSelectActive) {
             setItemButtonHeld(false);
         }
     }
@@ -1887,8 +2001,11 @@ public class MainActivity extends SDLActivity{
                         }
                         if (mIsAiming) {
                             setCameraTouchActive(true);
-                            setItemButtonPulse();
-                            setItemButtonHeld(true);
+                            if (!itemSelectActive) {
+                                // Without a selected item, touching the screen holds the aim and lifting fires.
+                                setItemButtonPulse();
+                                setItemButtonHeld(true);
+                            }
                         }
                         return true;
                     }

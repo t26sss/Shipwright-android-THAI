@@ -18,11 +18,12 @@ extern "C" {
 extern PlayState* gPlayState;
 
 void Player_Action_80842180(Player* player, PlayState* play); // untargeted walking/running
-void Player_PlayVoiceSfx(Player* player, u16 sfxId);
+void Player_PlayVoiceSfx(Player* this, u16 sfxId);
 }
 
 #define CVAR_SEPARATE_ROLL CVAR_ENHANCEMENT("SeparateRollButton")
 #define CVAR_TOUCH_SPRINT CVAR_ENHANCEMENT("TouchSprint")
+#define CVAR_TOUCH_ITEM_SELECT CVAR_ENHANCEMENT("TouchItemSelect")
 
 static bool ChangesAllowed() {
     return !CVarGetInteger(CVAR_SETTING("DisableChanges"), 0);
@@ -34,6 +35,36 @@ static bool SeparateRollEnabled() {
 
 static bool SprintEnabled() {
     return CVarGetInteger(CVAR_TOUCH_SPRINT, 0) && ChangesAllowed();
+}
+
+static bool ItemSelectEnabled() {
+    return CVarGetInteger(CVAR_TOUCH_ITEM_SELECT, 0) && ChangesAllowed();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Tap an item icon to select it, then A uses it (hold to aim, release to fire for ranged items).
+// -1 = nothing selected (A behaves normally), 0 = C-left, 1 = C-down, 2 = C-right.
+// ---------------------------------------------------------------------------------------------
+static std::atomic<int> sSelectedItem{ -1 };
+
+// Called at the start of the player's update with the player's own copy of the input, so menus,
+// textboxes and everything else still see the real A button. While an item is selected, A is
+// turned into the matching C button (pressed / held / released all follow A).
+extern "C" void TouchActions_RemapPlayerInput(Input* input) {
+    if (input == nullptr || !ItemSelectEnabled()) {
+        return;
+    }
+    const int slot = sSelectedItem.load();
+    if (slot < 0 || slot > 2) {
+        return;
+    }
+    static const u16 cButtons[3] = { BTN_CLEFT, BTN_CDOWN, BTN_CRIGHT };
+    OSContPad* pads[] = { &input->cur, &input->prev, &input->press, &input->rel };
+    for (OSContPad* pad : pads) {
+        if (pad->button & BTN_A) {
+            pad->button = (pad->button & ~BTN_A) | cButtons[slot];
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -152,6 +183,15 @@ extern "C" JNIEXPORT void JNICALL Java_com_dishii_soh_MainActivity_nativeTouchRo
 
 extern "C" JNIEXPORT jboolean JNICALL Java_com_dishii_soh_MainActivity_nativeIsSeparateRoll(JNIEnv*, jobject) {
     return SeparateRollEnabled() ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_dishii_soh_MainActivity_nativeSetSelectedItem(JNIEnv*, jobject,
+                                                                                         jint slot) {
+    sSelectedItem.store((int)slot);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_dishii_soh_MainActivity_nativeIsItemSelectEnabled(JNIEnv*, jobject) {
+    return ItemSelectEnabled() ? JNI_TRUE : JNI_FALSE;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_dishii_soh_MainActivity_nativeTouchSprint(JNIEnv*, jobject, jboolean down) {

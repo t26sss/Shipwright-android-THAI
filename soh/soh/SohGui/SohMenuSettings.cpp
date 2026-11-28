@@ -679,6 +679,13 @@ void SohMenu::AddMenuSettings() {
         .Options(CheckboxOptions().Tooltip(
             T("A no longer rolls, hops or backflips. Only the on-screen Roll button does. Disabled during race "
               "lockout.")));
+    AddWidget(path, T("Tap Item Icons, A Uses Item"), WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_ENHANCEMENT("TouchItemSelect"))
+        .Options(CheckboxOptions().Tooltip(
+            T("Tap an item icon (C-left / C-down / C-right) on the HUD to select it, tap again to deselect. While "
+              "selected, A uses that item: hold to aim, drag the screen to look around, release to fire. Use "
+              "'Edit Touch Button Positions' to line the tap areas up with the icons. Disabled during race "
+              "lockout.")));
     AddWidget(path, T("Sprint Button (Stamina)"), WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("TouchSprint"))
         .Options(CheckboxOptions().Tooltip(
